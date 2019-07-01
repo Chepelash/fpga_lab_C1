@@ -1,18 +1,19 @@
 module control_register #(
-  parameter DATA_WIDTH = 32,
-  parameter REG_DEPTH  = 3
+  parameter REG_WIDTH = 32,
+  parameter REG_DEPTH = 4
+//  parameter PAT_WIDTH = REG_DEPTH - 1;
 )(
-  input                         clk_i,
-  input                         srst_i,
+  input                        clk_i,
+  input                        srst_i,
   
-  avalon_mm_if.slave            amm_slave_if,
+  avalon_mm_if.slave           amm_slave_if,
   
-  output logic [0:DATA_WIDTH-1] pattern_o [REG_DEPTH-1:0],
-  output logic                  wrken_o
+  output logic [REG_WIDTH-1:0] pattern_o [PAT_WIDTH-1:0],
+  output logic                 wrken_o
 );
 
+localparam PAT_WIDTH = REG_DEPTH - 1;
 
-localparam REG_MAP_SIZE = REG_DEPTH + 1;
 
 // register map
 /*
@@ -25,16 +26,16 @@ localparam REG_MAP_SIZE = REG_DEPTH + 1;
   31:1 - Reserved;
   0    - Enable ( 1 -- ON, 0 -- OFF )  
 */
-logic [DATA_WIDTH-1:0]   reg_map [REG_MAP_SIZE-1:0];
+logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0];
 
 // avalon-mm siglans reassign
-logic [REG_MAP_SIZE-1:0] address_i;
-logic                    write_i;
-logic [DATA_WIDTH-1:0]   writedata_i;
-logic                    read_i;
-logic                    waitrequest_o;
-logic [DATA_WIDTH-1:0]   readdata_o; 
-logic                    readdatavalid_o;
+logic [REG_DEPTH-1:0]  address_i;
+logic                  write_i;
+logic [REG_WIDTH-1:0] writedata_i;
+logic                  read_i;
+logic                  waitrequest_o;
+logic [REG_WIDTH-1:0] readdata_o; 
+logic                  readdatavalid_o;
 
 assign address_i   = amm_slave_if.address;
 assign write_i     = amm_slave_if.write;
@@ -48,7 +49,7 @@ assign amm_slave_if.readdatavalid = readdatavalid_o;
 // pattern assign to key symbols
 generate
   genvar i;
-  for( i = REG_MAP_SIZE-1; i > 0; i-- )
+  for( i = PAT_WIDTH; i > 0; i-- )
     begin : pattern_assign
       assign pattern_o[i-1] = reg_map[i];
     end  
@@ -58,11 +59,12 @@ endgenerate
 // wrken = reg_map[0][0]
 assign wrken_o = reg_map[0][0];
 
+
 // reg_map control
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      reg_map <= '{default: '0};
+      reg_map <= '{default: '1};
     else
       begin : main_else
         // reading and writing to reg_map via avalon mm slave

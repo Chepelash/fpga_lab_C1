@@ -1,7 +1,8 @@
 module packet_classer #(
-  parameter          DATA_WIDTH    = 32,
+  parameter          AMM_DWIDTH    = 32,
+  parameter          AST_DWIDTH    = 64,
   parameter          CHANNEL_WIDTH = 1,
-  parameter          REG_DEPTH     = 3
+  parameter          REG_DEPTH     = 4
 )(
   input              clk_i,
   input              srst_i,
@@ -13,48 +14,64 @@ module packet_classer #(
   avalon_st_if.sink  ast_sink_if
 );
 
-localparam EMPTY_WIDTH   = $clog2( DATA_WIDTH / 8 );
+localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
+localparam PAT_WIDTH = REG_DEPTH - 1;
 
 // delayed end signal nulling for src_channel_o
 logic delayed_sink_end;
 
-// pattern of searching
-logic [0:DATA_WIDTH-1] pattern [REG_DEPTH-1:0];
+// pattern of searching. Reversed becouse big-endian
+logic [0:AMM_DWIDTH-1] pattern [0:PAT_WIDTH-1];
 // reg[0][0] - Enable
-logic                    wrken;
-
-logic [REG_DEPTH-1:0] found;
+logic                  wrken;
+// matching signal
+logic [PAT_WIDTH-1:0]  found_t;
+logic [PAT_WIDTH-1:0]  found_k;
 
 // searching area 
-logic [DATA_WIDTH-1:0] substring [REG_DEPTH-1:0];
+logic [AMM_DWIDTH-1:0] substring [REG_DEPTH-1:0];
 
 // start and fin of input packet
 logic start;
 logic fin;
-
 logic start_next;
 logic fin_next;
 
-logic [DATA_WIDTH-1:0] sink_valid_data;
+logic [AST_DWIDTH-1:0] sink_valid_data;
 
 // avalon st reassigning
-// src
+// sink
 logic                     sink_ready_o;
-logic [DATA_WIDTH-1:0]    sink_data_i;
+logic [AST_DWIDTH-1:0]    sink_data_i;
 logic                     sink_valid_i;
 logic                     sink_startofpacket_i;
 logic                     sink_endofpacket_i;
 logic [EMPTY_WIDTH-1:0]   sink_empty_i;
 logic [CHANNEL_WIDTH-1:0] sink_channel_i;
 
-// sink
+// src
 logic                     src_ready_i;
-logic [DATA_WIDTH-1:0]    src_data_o;
+logic [AST_DWIDTH-1:0]    src_data_o;
 logic                     src_valid_o;
 logic                     src_startofpacket_o;
 logic                     src_endofpacket_o;
 logic [EMPTY_WIDTH-1:0]   src_empty_o;
 logic [CHANNEL_WIDTH-1:0] src_channel_o;
+
+// avalon delays
+/*
+  in 'worst' case searched data comes with last word. 1 tick is needed to check matches, 
+  another one tick needed to grab found signal by src_channel_o. Data from sink to src should be delayed 
+  by 2 ticks, becouse decision is make at high 'endofpacket' signal.
+  ready and channel_o should not be delayed
+*/
+
+logic [AST_DWIDTH-1:0]    d_sink_data_i;
+logic                     d_sink_valid_i;
+logic                     d_sink_startofpacket_i;
+logic                     d_sink_endofpacket_i;
+logic [EMPTY_WIDTH-1:0]   d_sink_empty_i;
+logic [CHANNEL_WIDTH-1:0] d_sink_channel_i;
 
 
 assign ast_sink_if.ready    = sink_ready_o;
@@ -74,9 +91,48 @@ assign ast_src_if.empty         = src_empty_o;
 assign ast_src_if.channel       = src_channel_o;
 // end avalon st reassigning
 
+assign sink_ready_o = src_ready_i;
+
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      begin
+       // sink
+        d_sink_data_i          <= '0;
+        d_sink_valid_i         <= '0;
+        d_sink_startofpacket_i <= '0;
+        d_sink_endofpacket_i   <= '0;
+        d_sink_empty_i         <= '0;
+        d_sink_channel_i       <= '0;
+
+      end
+    else
+      begin
+        // first
+        d_sink_data_i          <= sink_data_i;
+        d_sink_valid_i         <= sink_valid_i;
+        d_sink_startofpacket_i <= sink_startofpacket_i;
+        d_sink_endofpacket_i   <= sink_endofpacket_i;
+        d_sink_empty_i         <= sink_empty_i;
+        d_sink_channel_i       <= sink_channel_i;
+        
+        // sink
+        src_data_o          <= d_sink_data_i;
+        src_valid_o         <= d_sink_valid_i;
+        src_startofpacket_o <= d_sink_startofpacket_i;
+        src_endofpacket_o   <= d_sink_endofpacket_i;
+        src_empty_o         <= d_sink_empty_i;
+        // channel 
+
+      end
+  end
+
+/////////////////
+
+
 // avalon mm module 
 control_register #(
-  .DATA_WIDTH     ( DATA_WIDTH   ),
+  .REG_WIDTH      ( AMM_DWIDTH   ),
   .REG_DEPTH      ( REG_DEPTH    )
 ) cntr_regs       (
   .clk_i          ( clk_i        ),
@@ -88,29 +144,31 @@ control_register #(
   .wrken_o        ( wrken        )
 );
 
-// streaming data from input to packet_resolver
-assign src_data_o          = sink_data_i;
-assign src_valid_o         = sink_valid_i;
-assign src_startofpacket_o = sink_startofpacket_i;
-assign src_endofpacket_o   = sink_endofpacket_i;
-assign src_empty_o         = sink_empty_i; 
-assign sink_ready_o = src_ready_i;
+
+
 
 // data flow in substring. It's a pipeline
-//always_ff @( posedge clk_i )
-//  begin
-//    if( srst_i )
-//      substring[0] <= '0;
-//    else
-//      begin : main_else
-//        if( start_next && sink_valid_i )
-//          substring[0] <= sink_valid_data;
-//      end   : main_else
-//  end
-assign substring[0] = sink_valid_data;
+// AST 64 bits. Separating by 2 
+assign substring[0] = sink_valid_data[AST_DWIDTH/2-1:0];
+assign substring[1] = sink_valid_data[AST_DWIDTH-1:AST_DWIDTH/2];
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      begin
+        substring[2] <= '0;
+        substring[3] <= '0;
+      end
+    else
+      begin
+        substring[2] <= substring[0];
+        substring[3] <= substring[1];
+      end
+  end
+// VARIABLE key word search someday
+/*
 generate
 genvar i;
-for( i = 1; i < REG_DEPTH; i++ )
+for( i = 2; i < PAT_WIDTH; i++ )
   begin : substring_pipeline
     always_ff @( posedge clk_i )
       begin
@@ -124,7 +182,7 @@ for( i = 1; i < REG_DEPTH; i++ )
       end
   end  
 endgenerate
-
+*/
 // starting and ending conditions
 always_ff @( posedge clk_i )
   begin
@@ -157,7 +215,7 @@ always_comb
         start_next = 0;
         fin_next   = 0;
       end
-    if( sink_valid_i && sink_startofpacket_i )
+    if( sink_valid_i && sink_startofpacket_i && wrken )
       start_next = 1;
     else if( sink_valid_i && sink_endofpacket_i )
       fin_next = 1;    
@@ -172,13 +230,7 @@ always_comb
   end
 
 // searching for matches
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      delayed_sink_end <= '0;
-    else
-      delayed_sink_end <= sink_endofpacket_i;
-  end
+
 
 always_ff @( posedge clk_i )
   begin
@@ -186,22 +238,32 @@ always_ff @( posedge clk_i )
       src_channel_o <= '0;
     else
       begin : main_else
-        if( &found )
+        if( &found_k || &found_t )
           src_channel_o <= '1;
-        else if( delayed_sink_end )
+        else if( src_endofpacket_o )
           src_channel_o <= '0;
       end   : main_else
   end
 
 generate
   genvar k;
-  for( k = 0; k < REG_DEPTH; k++ )
-    begin : searching
+  genvar t;
+  for( k = 0; k < PAT_WIDTH; k++ )
+    begin : searching_start
       always_comb
         begin
-          found[k] = '0;
+          found_k[k] = '0;
           if( substring[k] == pattern[k] )
-            found[k] = '1;
+            found_k[k] = '1;
+        end
+    end
+  for( t = 1; t <= PAT_WIDTH; t++ )
+    begin : searching_end
+      always_comb
+        begin
+          found_t[t-1] = '0;
+          if( substring[t] == pattern[t-1] )
+            found_t[t-1] = '1;
         end
     end
 endgenerate
