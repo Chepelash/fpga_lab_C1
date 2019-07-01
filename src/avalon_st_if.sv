@@ -3,7 +3,9 @@ interface avalon_st_if #(
   parameter CHANNEL_WIDTH = 1,
   parameter EMPTY_WIDTH   = $clog2( DWIDTH / 8 )
 )(
-  input clk
+
+  input clk_i
+
 );
 
 logic                     ready;

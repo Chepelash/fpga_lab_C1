@@ -1,5 +1,5 @@
 interface avalon_mm_if #(
-  parameter DWIDTH = 32;
+  parameter DWIDTH = 32,
   parameter AWIDTH = 2
 );
 

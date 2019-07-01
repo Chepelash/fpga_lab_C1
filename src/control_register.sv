@@ -1,7 +1,7 @@
 module control_register #(
   parameter REG_WIDTH = 32,
-  parameter REG_DEPTH = 4
-//  parameter PAT_WIDTH = REG_DEPTH - 1;
+  parameter REG_DEPTH = 4,
+  parameter PAT_WIDTH = REG_DEPTH - 1
 )(
   input                        clk_i,
   input                        srst_i,
@@ -12,7 +12,7 @@ module control_register #(
   output logic                 wrken_o
 );
 
-localparam PAT_WIDTH = REG_DEPTH - 1;
+//localparam PAT_WIDTH = REG_DEPTH - 1;
 
 
 // register map

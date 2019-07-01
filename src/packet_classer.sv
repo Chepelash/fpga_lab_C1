@@ -9,9 +9,9 @@ module packet_classer #(
   
   avalon_mm_if.slave amm_slave_if,
   
-  avalon_st_if.src   ast_src_if,
+  avalon_st_if.src   ast_src_if ,
   
-  avalon_st_if.sink  ast_sink_if
+  avalon_st_if.sink  ast_sink_if 
 );
 
 localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
@@ -62,7 +62,7 @@ logic [CHANNEL_WIDTH-1:0] src_channel_o;
 /*
   in 'worst' case searched data comes with last word. 1 tick is needed to check matches, 
   another one tick needed to grab found signal by src_channel_o. Data from sink to src should be delayed 
-  by 2 ticks, becouse decision is make at high 'endofpacket' signal.
+  by 2 ticks, becouse decision is made at high 'endofpacket' signal.
   ready and channel_o should not be delayed
 */
 
