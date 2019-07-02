@@ -17,6 +17,9 @@ module packet_classer #(
 localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
 localparam PAT_WIDTH = REG_DEPTH - 1;
 
+// grab and use data only when sink.ready = 1, wrken = 1, start = 1 (proper sop) and sink.valid = 1
+logic is_valid;
+
 // delayed end signal nulling for src_channel_o
 logic delayed_sink_end;
 
@@ -30,6 +33,7 @@ logic [PAT_WIDTH-1:0]  found_k;
 
 // searching area 
 logic [AMM_DWIDTH-1:0] substring [REG_DEPTH-1:0];
+logic [AMM_DWIDTH-1:0] substring_n [REG_DEPTH/2-1:0];
 
 // start and fin of input packet
 logic start;
@@ -91,6 +95,7 @@ assign ast_src_if.empty         = src_empty_o;
 assign ast_src_if.channel       = src_channel_o;
 // end avalon st reassigning
 
+assign is_valid = sink_ready_o & wrken & start_next & sink_valid_i;
 assign sink_ready_o = src_ready_i;
 
 always_ff @( posedge clk_i )
@@ -107,24 +112,26 @@ always_ff @( posedge clk_i )
 
       end
     else
-      begin
-        // first
-        d_sink_data_i          <= sink_data_i;
-        d_sink_valid_i         <= sink_valid_i;
-        d_sink_startofpacket_i <= sink_startofpacket_i;
-        d_sink_endofpacket_i   <= sink_endofpacket_i;
-        d_sink_empty_i         <= sink_empty_i;
-        d_sink_channel_i       <= sink_channel_i;
-        
-        // sink
-        src_data_o          <= d_sink_data_i;
-        src_valid_o         <= d_sink_valid_i;
-        src_startofpacket_o <= d_sink_startofpacket_i;
-        src_endofpacket_o   <= d_sink_endofpacket_i;
-        src_empty_o         <= d_sink_empty_i;
-        // channel 
-
-      end
+      begin : main_else
+        if( is_valid )
+          begin
+            // first
+            d_sink_data_i          <= sink_data_i;
+            d_sink_valid_i         <= sink_valid_i;
+            d_sink_startofpacket_i <= sink_startofpacket_i;
+            d_sink_endofpacket_i   <= sink_endofpacket_i;
+            d_sink_empty_i         <= sink_empty_i;
+            d_sink_channel_i       <= sink_channel_i;
+            
+            // sink
+            src_data_o          <= d_sink_data_i;
+            src_valid_o         <= d_sink_valid_i;
+            src_startofpacket_o <= d_sink_startofpacket_i;
+            src_endofpacket_o   <= d_sink_endofpacket_i;
+            src_empty_o         <= d_sink_empty_i;
+            // channel 
+          end
+      end   : main_else
   end
 
 /////////////////
@@ -149,8 +156,32 @@ control_register #(
 
 // data flow in substring. It's a pipeline
 // AST 64 bits. Separating by 2 
-assign substring[0] = sink_valid_data[AST_DWIDTH/2-1:0];
-assign substring[1] = sink_valid_data[AST_DWIDTH-1:AST_DWIDTH/2];
+
+// latch conter!!!!111!11
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      begin
+        substring_n[0] <= '0;
+        substring_n[1] <= '0;
+      end
+    else
+      begin
+        substring_n[0] <= substring[0];
+        substring_n[1] <= substring[1];
+      end
+  end
+always_comb
+  begin
+    substring[0] = substring_n[0];
+    substring[1] = substring_n[1];
+    if( is_valid )
+      begin
+        substring[0] = sink_valid_data[AST_DWIDTH/2-1:0];
+        substring[1] = sink_valid_data[AST_DWIDTH-1:AST_DWIDTH/2];
+      end
+  end
+// end latch conter
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
@@ -160,8 +191,12 @@ always_ff @( posedge clk_i )
       end
     else
       begin
-        substring[2] <= substring[0];
-        substring[3] <= substring[1];
+        if( is_valid )
+          begin
+            substring[2] <= substring[0];
+            substring[3] <= substring[1];
+          end
+
       end
   end
 // VARIABLE key word search someday
@@ -215,7 +250,7 @@ always_comb
         start_next = 0;
         fin_next   = 0;
       end
-    if( sink_valid_i && sink_startofpacket_i && wrken )
+    if( sink_valid_i && sink_startofpacket_i && wrken && sink_ready_o )
       start_next = 1;
     else if( sink_valid_i && sink_endofpacket_i )
       fin_next = 1;    
@@ -225,7 +260,7 @@ always_comb
 always_comb
   begin
     sink_valid_data = '0;
-    if( start_next && sink_valid_i )
+    if( is_valid )
       sink_valid_data = sink_data_i;
   end
 
