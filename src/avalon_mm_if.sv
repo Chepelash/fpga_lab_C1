@@ -1,7 +1,9 @@
 interface avalon_mm_if #(
   parameter DWIDTH = 32,
-  parameter AWIDTH = 2
+  parameter NUM_REGS = 4
 );
+
+localparam AWIDTH = $clog2( NUM_REGS ) + 1;
 
 logic              waitrequest;
 logic [AWIDTH-1:0] address;

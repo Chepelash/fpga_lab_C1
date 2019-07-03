@@ -29,13 +29,13 @@ module control_register #(
 logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0];
 
 // avalon-mm siglans reassign
-logic [REG_DEPTH-1:0]  address_i;
-logic                  write_i;
+logic [REG_DEPTH-1:0] address_i;
+logic                 write_i;
 logic [REG_WIDTH-1:0] writedata_i;
-logic                  read_i;
-logic                  waitrequest_o;
+logic                 read_i;
+logic                 waitrequest_o;
 logic [REG_WIDTH-1:0] readdata_o; 
-logic                  readdatavalid_o;
+logic                 readdatavalid_o;
 
 assign address_i   = amm_slave_if.address;
 assign write_i     = amm_slave_if.write;
@@ -64,7 +64,10 @@ assign wrken_o = reg_map[0][0];
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      reg_map <= '{default: '1};
+      begin
+        reg_map <= '{default: '1};
+        reg_map[0][0] <= '0;
+      end           
     else
       begin : main_else
         // reading and writing to reg_map via avalon mm slave

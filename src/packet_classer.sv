@@ -272,12 +272,12 @@ always_ff @( posedge clk_i )
     if( srst_i )
       src_channel_o <= '0;
     else
-      begin : main_else
+      begin 
         if( &found_k || &found_t )
           src_channel_o <= '1;
         else if( src_endofpacket_o )
           src_channel_o <= '0;
-      end   : main_else
+      end   
   end
 
 generate

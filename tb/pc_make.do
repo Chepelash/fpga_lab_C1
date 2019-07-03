@@ -14,6 +14,10 @@ vsim -novopt packet_classer_tb
 
 add wave /packet_classer_tb/clk_i
 add wave /packet_classer_tb/srst_i
+add wave -radix ascii /packet_classer_tb/DUT/pattern
+add wave /packet_classer_tb/DUT/wrken
+
+
 
 run -all
 
