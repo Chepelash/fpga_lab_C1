@@ -1,10 +1,10 @@
 module packet_classer_tb;
 
-parameter int CLK_T      = 60;
-parameter int AMM_DWIDTH = 32; 
+parameter int CLK_T        = 60;
+parameter int AMM_DWIDTH   = 32; 
 parameter int AMM_NUM_REGS = 4;
-parameter int AMM_AWIDTH = $clog2(AMM_NUM_REGS) + 1;
-parameter int AST_DWIDTH = 64;
+parameter int AMM_AWIDTH   = $clog2(AMM_NUM_REGS) + 1;
+parameter int AST_DWIDTH   = 64;
 
 logic clk_i;
 logic srst_i;
@@ -14,10 +14,10 @@ class AMM_Driver;
   bit is_enable;
   
   task init();
-    amm_master_if.address <= '0;
-    amm_master_if.write <= '0;
+    amm_master_if.address   <= '0;
+    amm_master_if.write     <= '0;
     amm_master_if.writedata <= '0;
-    amm_master_if.read <= '0;
+    amm_master_if.read      <= '0;
   endtask
   
   task write_registers( string s );
@@ -128,7 +128,8 @@ task automatic init;
   
   clk_i  <= '1;
   srst_i <= '0;
-
+  amm_driver.init();
+  
 endtask
 
 AMM_Driver amm_driver;
@@ -138,7 +139,7 @@ initial
   begin
     init(); 
     amm_driver = new();
-    amm_driver.init();
+    
     fork
       clk_gen();
     join_none
