@@ -36,7 +36,7 @@ class AMM_Driver;
         // forming the key phrase
         for( int j = 0; j < AMM_DWIDTH; j = j + 8 )
           begin
-            packet[j+:7] = s.getc(cntr++)[7:0];            
+            packet[j+:7] = s.getc( cntr++ )[7:0];            
           end
         amm_master_if.writedata <= packet;
         @( posedge clk_i );
@@ -68,7 +68,39 @@ class AMM_Driver;
 endclass
 
 class AST_Driver;
-
+  bit is_src;
+  
+  function new( bit mode );
+    this.is_src = mode;
+  endfunction
+  
+  task init_st();
+    if( this.is_src )
+      begin
+      // src
+        ast_src_if.data          <= '0;
+        ast_src_if.valid         <= '0;
+        ast_src_if.startofpacket <= '0;
+        ast_src_if.endofpacket   <= '0;
+        ast_src_if.empty         <= '0;
+        ast_src_if.channel       <= '0;
+      end
+    else    
+      begin
+      // sink
+        ast_sink_if.ready <= '0;
+      end
+  endtask
+  
+  task send_packet( int num_of_transactions = 1 );
+    if( !this.is_src )
+      begin
+        $display("AST_Driver.send_packet - you are a sink!");
+        disable send_packet;
+      end
+    
+  endtask
+  
 endclass
 
 avalon_mm_if   #(
@@ -147,12 +179,17 @@ initial
     
     
     $display("Starting testbench!");
+    
     amm_driver.write_registers( "abcdefghijkl" );
     @(posedge clk_i );
+    
     amm_driver.wrk_enable( 1 );
     @(posedge clk_i );
+    
     ss = amm_driver.get_key_phrase();
+    
     $display("%s",ss);
+    
     $display("Everything is OK!");
     $stop();
     
