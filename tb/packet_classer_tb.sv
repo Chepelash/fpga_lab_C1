@@ -36,7 +36,7 @@ class AMM_Driver;
         // forming the key phrase
         for( int j = 0; j < AMM_DWIDTH; j = j + 8 )
           begin
-            packet[j+:7] = s.getc( cntr++ )[7:0];            
+            packet[j+:8] = s.getc( cntr++ )[7:0];            
           end
         amm_master_if.writedata <= packet;
         @( posedge clk_i );
@@ -65,13 +65,16 @@ class AMM_Driver;
   function string get_key_phrase();
     return this.key_phrase;
   endfunction
+  
 endclass
 
 class AST_Driver;
   bit is_src;
+  string key_phrase;
   
-  function new( bit mode );
+  function new( bit mode, string s );
     this.is_src = mode;
+    this.key_phrase = s;
   endfunction
   
   task init_st();
@@ -96,12 +99,48 @@ class AST_Driver;
     if( !this.is_src )
       begin
         $display("AST_Driver.send_packet - you are a sink!");
-        disable send_packet;
+//        disable send_packet;
+        return;
       end
+    ast_src_if.valid <= '1;
     
   endtask
   
 endclass
+
+
+class RandPGen;
+
+  bit key_phrase [11:0] [7:0];
+  
+  rand bit is_put_key_phrase;
+  rand int packet_len;
+  rand bit out_packet [1513:0] [7:0];  
+//  rand int key_phrase_start_idx;
+  rand int key_phrase_end_idx;
+  
+  constraint c {
+    packet_len inside {[60:1514]};
+    key_phrase_end_idx < packet_len;
+  };
+  
+  function void set_key_phrase( string s );
+    if( s.len() != 12 )
+      begin
+        $display("RandPGen.set_key_phrase - string should be 12 symbols!");        
+      end
+    else
+      begin
+        // reversing string   
+//        for( int i = 0; i < 12; i++ )
+//          this.key_phrase[i] = s[11-i];
+        this.key_phrase = {<<8{s}};
+      end
+    
+  endfunction
+  
+endclass
+
 
 avalon_mm_if   #(
   .DWIDTH       ( AMM_DWIDTH   ),
