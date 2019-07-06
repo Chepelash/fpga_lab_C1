@@ -17,6 +17,21 @@ add wave /packet_classer_tb/srst_i
 add wave -radix ascii /packet_classer_tb/DUT/pattern
 add wave /packet_classer_tb/DUT/wrken
 
+add wave /packet_classer_tb/ast_src_if.ready
+add wave -radix ascii /packet_classer_tb/ast_src_if.data
+add wave /packet_classer_tb/ast_src_if.valid
+add wave /packet_classer_tb/ast_src_if.startofpacket
+add wave /packet_classer_tb/ast_src_if.endofpacket
+add wave /packet_classer_tb/ast_src_if.empty
+add wave /packet_classer_tb/ast_src_if.channel
+
+add wave /packet_classer_tb/ast_sink_if.ready
+add wave -radix ascii /packet_classer_tb/ast_sink_if.data
+add wave /packet_classer_tb/ast_sink_if.valid
+add wave /packet_classer_tb/ast_sink_if.startofpacket
+add wave /packet_classer_tb/ast_sink_if.endofpacket
+add wave /packet_classer_tb/ast_sink_if.empty
+add wave /packet_classer_tb/ast_sink_if.channel
 
 
 run -all

@@ -10,7 +10,7 @@ logic clk_i;
 logic srst_i;
 
 class AMM_Driver;
-  string key_phrase;
+  bit [7:0] key_phrase [11:0];
   bit is_enable;
   
   task init();
@@ -20,14 +20,10 @@ class AMM_Driver;
     amm_master_if.read      <= '0;
   endtask
   
-  task write_registers( string s );
-    bit [AMM_DWIDTH-1:0] packet;
+  task write_registers( bit [7:0] s [11:0] );
+    bit [0:AMM_DWIDTH-1] packet;
     int cntr;
-    if( s.len() != 12 )
-      begin
-        $display("AMM_Driver.write_registers - string must be 12 chars long!");
-        disable write_registers;
-      end
+    
     this.key_phrase = s;
     amm_master_if.write <= '1;
     for( int i = 1; i < AMM_NUM_REGS; i++ )
@@ -36,7 +32,7 @@ class AMM_Driver;
         // forming the key phrase
         for( int j = 0; j < AMM_DWIDTH; j = j + 8 )
           begin
-            packet[j+:8] = s.getc( cntr++ )[7:0];            
+            packet[j+:8] = s[cntr++];            
           end
         amm_master_if.writedata <= packet;
         @( posedge clk_i );
@@ -45,100 +41,94 @@ class AMM_Driver;
   endtask
   
   task wrk_enable( bit val );    
+    // this is not possible. bit is only 0 or 1!!!!!!!!!!
     if( ( val > 1 ) || ( val < 0 ) )
       begin
         $display("AMM_Driver.wrk_enable - wrong value!");
         disable wrk_enable;
       end
-    this.is_enable = val;
-    amm_master_if.write <= '1;
-    amm_master_if.address <= '0;
+    this.is_enable           = val;
+    amm_master_if.write     <= '1;
+    amm_master_if.address   <= '0;
     amm_master_if.writedata <= val;
     @( posedge clk_i );
-    amm_master_if.write <= '0;
+    amm_master_if.write     <= '0;
   endtask
   
   function bit is_working();  
     return this.is_enable;
   endfunction
   
-  function string get_key_phrase();
-    return this.key_phrase;
-  endfunction
+  // need to define a type to set function return type. I'm too lazy
+//  function get_key_phrase();
+//    return this.key_phrase;
+//  endfunction
   
 endclass
 
 class RandPGen;  
-  rand bit is_put_key_phrase;
-  rand int packet_len;
-  rand bit [7:0] out_packet [1513:0];  
-  rand int key_phrase_end_idx;
-  rand bit [$clog2(AST_DWIDTH / 8) - 1:0] empty;
+  bit is_put_key_phrase;
+  int packet_len;
+  bit [7:0] out_packet [1513:0];  
+  int key_phrase_end_idx;
+  bit [$clog2(AST_DWIDTH / 8) - 1:0] empty;
   
-  constraint c {
-    // 60 <= packet_len <= 1514
-    packet_len inside {[60:1514]};
-    // 11 <= idx <= 1513 - empty
-    key_phrase_end_idx inside {[11:packet_len - 1 - empty]};
-  };
+  function void pro_randomize();
+    this.is_put_key_phrase  = $urandom_range(1, 0);
+    this.packet_len         = $urandom_range(1514, 60);
+    for( int rp = 0; rp < 1514; rp++ )
+      this.out_packet[rp]   = $urandom_range(127);
+      
+    this.empty              = $urandom_range($clog2(AST_DWIDTH / 8)-1);
+    this.key_phrase_end_idx = $urandom_range(this.packet_len-1-empty, 11);
+    
+  endfunction
+  
 endclass
 
-class AST_Driver;
+class AST_src_Driver;
   bit is_src;
-  string key_phrase;
+  bit [7:0] key_phrase [11:0];
   
-  function new( bit mode, string s );
-    this.is_src = mode;
+  function void set_key_phrase( bit [7:0] s [11:0] );
     this.key_phrase = s;
   endfunction
   
   task init_st();
-    if( this.is_src )
-      begin
-      // src
-        ast_src_if.data          <= '0;
-        ast_src_if.valid         <= '0;
-        ast_src_if.startofpacket <= '0;
-        ast_src_if.endofpacket   <= '0;
-        ast_src_if.empty         <= '0;
-        ast_src_if.channel       <= '0;
-      end
-    else    
-      begin
-      // sink
-        ast_sink_if.ready <= '0;
-      end
+
+    ast_src_if.data          <= '0;
+    ast_src_if.valid         <= '0;
+    ast_src_if.startofpacket <= '0;
+    ast_src_if.endofpacket   <= '0;
+    ast_src_if.empty         <= '0;
+    ast_src_if.channel       <= '0;
+
   endtask
   
   task send_packet( int num_of_transactions = 1 );
-    bit done;
-    RandPGen rgen;
-    int cntr;
-    bit [7:0] out_packet [1513:0];
-    bit [31:0] packet;    
-    
-    if( !this.is_src )
-      begin
-        $display("AST_Driver.send_packet - you are a sink!");
-        disable send_packet;
-//        return;
-      end      
+    bit        done;
+    RandPGen   rgen;
+    int        cntr;
+    bit [7:0]  out_packet [1513:0];
+    bit [0:63] packet;        
+     
     for( int nn = 0; nn < num_of_transactions; nn++ )
       begin
         rgen = new();
-        assert( rgen.randomize() );
+        rgen.pro_randomize();
+        
+        $display("rgen.key_phrase_end_idx = %d", rgen.key_phrase_end_idx);
         cntr = 0;
         done = 0;
         // inserting reversed key_phrase in out packet
         out_packet = rgen.out_packet;
         if( rgen.is_put_key_phrase )
           begin
-            for( int h = 0; h < 12; h++ )
-              begin
-                out_packet[rgen.key_phrase_end_idx-h] = this.key_phrase.getc( h )[7:0];
-              end              
+            $display("%d", rgen.key_phrase_end_idx);
+            out_packet[rgen.key_phrase_end_idx-:12] = this.key_phrase;
           end      
-          
+        $display( "%p", out_packet );
+        $display( "%p", this.key_phrase );
         while( !done )
           begin
             ast_src_if.valid <= '1;
@@ -148,18 +138,19 @@ class AST_Driver;
                 ast_src_if.startofpacket <= '1;
                 ast_src_if.endofpacket <= '0;
               end
-            else if( cntr == rgen.key_phrase_end_idx - 1 )
+            // well, becouse cntr is going to be multiple of 8
+            else if( cntr >= rgen.key_phrase_end_idx - 1 )
               begin
                 done = 1;
                 ast_src_if.endofpacket <= '1;
-                ast_src_if.empty <= rgen.empty;
+                ast_src_if.empty <= rgen.empty;                
               end
             else
               begin
                 ast_src_if.startofpacket <= '0;
               end              
               
-            for( int tt = 0; tt < 32; tt = tt + 8 )
+            for( int tt = 0; tt < 64; tt = tt + 8 )
               begin
                 packet[tt+:8] = out_packet[cntr++];
               end
@@ -179,6 +170,16 @@ class AST_Driver;
     
   endtask
   
+endclass
+
+
+class ASCIIRandomizer;
+  rand bit [7:0] str [11:0]; 
+ 
+  function void pro_randomize();
+    for( int rs = 0; rs < 12; rs++ )
+      this.str[rs] = $urandom_range(127);
+  endfunction
 endclass
 
 
@@ -235,25 +236,36 @@ task automatic apply_rst;
 
 endtask
 
+
+AMM_Driver amm_driver;
+AST_src_Driver ast_src;
+//AST_Driver ast_sink;
+ASCIIRandomizer str_gen;
+
+
+
 task automatic init;
   
   clk_i  <= '1;
   srst_i <= '0;
   amm_driver.init();
+  ast_sink_if.ready <= '0;
+//  ast_sink.init_st();
+  ast_src.init_st();
   
 endtask
 
-AMM_Driver amm_driver;
-AST_Driver ast_src;
-AST_Driver ast_sink;
 
 string ss;
 initial
   begin
     init(); 
+    str_gen = new();
+    str_gen.pro_randomize();
+    
     amm_driver = new();
     ast_src = new();
-    ast_sink = new();
+//    ast_sink = new(0);
     
     fork
       clk_gen();
@@ -263,15 +275,19 @@ initial
     
     $display("Starting testbench!");
     
-    amm_driver.write_registers( "abcdefghijkl" );
+    amm_driver.write_registers( str_gen.str );
+    ast_src.set_key_phrase( str_gen.str );   
     @(posedge clk_i );
     
     amm_driver.wrk_enable( 1 );
     @(posedge clk_i );
     
-    ss = amm_driver.get_key_phrase();
+    ast_sink_if.ready <= '1;
+    @( posedge clk_i );
+    ast_src.send_packet();
     
-    $display("%s",ss);
+    for( int nd = 0; nd < 100; nd++ )
+      @( posedge clk_i );
     
     $display("Everything is OK!");
     $stop();

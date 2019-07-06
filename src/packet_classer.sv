@@ -123,14 +123,18 @@ always_ff @( posedge clk_i )
             d_sink_empty_i         <= sink_empty_i;
             d_sink_channel_i       <= sink_channel_i;
             
+            // channel 
+          end
+        if( d_sink_valid_i )
+          begin
             // sink
             src_data_o          <= d_sink_data_i;
             src_valid_o         <= d_sink_valid_i;
             src_startofpacket_o <= d_sink_startofpacket_i;
             src_endofpacket_o   <= d_sink_endofpacket_i;
             src_empty_o         <= d_sink_empty_i;
-            // channel 
           end
+        
       end   : main_else
   end
 
