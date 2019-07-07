@@ -9,7 +9,7 @@ module packet_classer #(
   
   avalon_mm_if.slave amm_slave_if,
   
-  avalon_st_if.src   ast_src_if ,
+  avalon_st_if.src   ast_src_if,
   
   avalon_st_if.sink  ast_sink_if 
 );
@@ -232,7 +232,7 @@ always_ff @( posedge clk_i )
       end
     else
       begin
-        if( fin )
+        if( fin_next )
           begin
             start <= '0;
             fin   <= '0;
