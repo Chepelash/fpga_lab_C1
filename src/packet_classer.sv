@@ -113,27 +113,20 @@ always_ff @( posedge clk_i )
       end
     else
       begin : main_else
-        if( is_valid )
-          begin
-            // first
-            d_sink_data_i          <= sink_data_i;
-            d_sink_valid_i         <= sink_valid_i;
-            d_sink_startofpacket_i <= sink_startofpacket_i;
-            d_sink_endofpacket_i   <= sink_endofpacket_i;
-            d_sink_empty_i         <= sink_empty_i;
-            d_sink_channel_i       <= sink_channel_i;
-            
-            // channel 
-          end
-        if( d_sink_valid_i )
-          begin
-            // sink
-            src_data_o          <= d_sink_data_i;
-            src_valid_o         <= d_sink_valid_i;
-            src_startofpacket_o <= d_sink_startofpacket_i;
-            src_endofpacket_o   <= d_sink_endofpacket_i;
-            src_empty_o         <= d_sink_empty_i;
-          end
+        // first
+        d_sink_data_i          <= sink_data_i;
+        d_sink_valid_i         <= sink_valid_i;
+        d_sink_startofpacket_i <= sink_startofpacket_i;
+        d_sink_endofpacket_i   <= sink_endofpacket_i;
+        d_sink_empty_i         <= sink_empty_i;
+        d_sink_channel_i       <= sink_channel_i;
+        // second
+        src_data_o          <= d_sink_data_i;
+        src_valid_o         <= d_sink_valid_i;
+        src_startofpacket_o <= d_sink_startofpacket_i;
+        src_endofpacket_o   <= d_sink_endofpacket_i;
+        src_empty_o         <= d_sink_empty_i;
+
         
       end   : main_else
   end

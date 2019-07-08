@@ -284,7 +284,7 @@ initial
     
     ast_sink_if.ready <= '1;
     @( posedge clk_i );
-    ast_src.send_packet();
+    ast_src.send_packet(2);
     
     for( int nd = 0; nd < 100; nd++ )
       @( posedge clk_i );
