@@ -22,6 +22,9 @@ localparam MEM_OFFSET    = 190;
   Actually, i need memory for 1 max packet. When 1 packet comes and it is valid, 
   module should start transmitting at eop high.
   But i need to create backpressure, when second packet is shorter, than first.
+  
+  Actually, module recieves only valid data, so there is no need to check it. 
+  It happens at packet classer.
 */
 
 ///
@@ -32,7 +35,7 @@ logic start;
 logic fin;
 logic start_next;
 logic fin_next;
-
+logic shift;
 
 // avalon st reassigning
 // sink
@@ -160,7 +163,35 @@ always_ff @( posedge clk_i )
       end
   end
 //
-// 
+// ready signal
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      sink_ready_o <= '1;
+    else
+      begin
+        /*
+          ready must go down when module transmitting a packet,
+          and next packet comes with sink_channel_i == 1 and it is shorter than first.
+          Ready must go up after first packet finishes transmission.
+        */
+      end
+  end
+//
+// shift signal
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      shift <= '0;
+    else
+      begin
+        if( sink_endofpacket_i && sink_channel_i )
+          shift <= ~shift;
+          
+      end
+  end
+
+// transmitting
 
 
 endmodule
