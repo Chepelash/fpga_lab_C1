@@ -14,28 +14,24 @@ module packet_resolver #(
 );
 
 localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
-localparam MIN_PCKT_SIZE = 60;
-localparam MAX_PCKT_SIZE = 1514;
-localparam MEM_OFFSET    = 190;
-
 /*
-  Actually, i need memory for 1 max packet. When 1 packet comes and it is valid, 
-  module should start transmitting at eop high.
-  But i need to create backpressure, when second packet is shorter, than first.
-  
-  Actually, module recieves only valid data, so there is no need to check it. 
-  It happens at packet classer.
+  60 Bytes with AST_DWIDTH = 64. 60/8 = 7.5 so i guess min_PCKT_SIZE in dwords 64/8 = 8 
+  1514 Bytes -//- max_PCKT_SIZE in dwords 1520/8 = 190
 */
+localparam MIN_PCKT_SIZE = 8;
+localparam MAX_PCKT_SIZE = 190;
+// + 2 for sop and eop
+localparam FIFO_DWIDTH   = AST_DWIDTH + 2;
+// 256 dwords
+localparam FIFO_AWIDTH   = 8;
 
 ///
-logic wren;
-logic [8:0] wrpntr;
-logic [8:0] rdpntr;
-logic start;
-logic fin;
-logic start_next;
-logic fin_next;
-logic shift;
+logic       wren;
+// 9 - AWIDTH of ram_memory
+logic       start;
+logic       fin;
+logic       start_next;
+logic       fin_next;
 
 // avalon st reassigning
 // sink
@@ -72,126 +68,18 @@ assign ast_src_if.endofpacket   = src_endofpacket_o;
 assign ast_src_if.empty         = src_empty_o;
 assign ast_src_if.channel       = src_channel_o;
 
-// memory to store packets. 2**9 = 512. to store 2 packets. 1516 B / 8 = 190
-ram_memory #(
-  .DWIDTH   ( AST_DWIDTH  ),
-  .AWIDTH   ( 9           )
-) mem       (
-  .clk_i    ( clk_i       ),
-  
-  .wren_i   ( wren        ),
-  .wrpntr_i ( wrpntr      ),  
-  .data_i   ( sink_data_i ),
-  
-  .rdpntr_i ( rdpntr      ),
-  
-  .q_o      ( src_data_o  )
+fifo #(
+  .DWIDTH ( FIFO_DWIDTH ),
+  .AWIDTH ( FIFO_AWIDTH )
+) data_fifo (
+  .clk_i ( clk_i ),
+  .
 );
 
+fifo #(
+) stat_fifo (
+);
 
-
-////
-assign wren = sink_ready_o & sink_valid_i & start_next;
-
-// starting and ending conditions
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      begin
-        start <= '0;
-        fin   <= '0;
-      end
-    else
-      begin
-        if( fin_next )
-          begin
-            start <= '0;
-            fin   <= '0;
-          end
-        else
-          begin
-            start <= start_next;
-            fin   <= fin_next;
-          end
-      end
-  end
-
-always_comb
-  begin
-    start_next = start;
-    fin_next   = fin;
-    if( fin )
-      begin
-        start_next = 0;
-        fin_next   = 0;
-      end
-    if( sink_valid_i && sink_startofpacket_i && wrken_i && sink_ready_o )
-      start_next = 1;
-    else if( sink_valid_i && sink_endofpacket_i )
-      fin_next = 1;    
-  end
-
-  
-// wrpntr
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      begin
-        wrpntr <= '0;
-      end
-    else
-      begin
-        if( wren )
-          wrpntr <= wrpntr + '1;
-        else if( fin )
-          wrpntr <= '0;
-      end
-  end
-// rdpntr
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      begin
-        rdpntr <= '0;
-      end
-    else
-      begin
-        if( src_valid_o )
-          rdpntr <= rdpntr + '1;
-        else if( src_endofpacket_o )
-          rdpntr <= '0;
-      end
-  end
-//
-// ready signal
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      sink_ready_o <= '1;
-    else
-      begin
-        /*
-          ready must go down when module transmitting a packet,
-          and next packet comes with sink_channel_i == 1 and it is shorter than first.
-          Ready must go up after first packet finishes transmission.
-        */
-      end
-  end
-//
-// shift signal
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      shift <= '0;
-    else
-      begin
-        if( sink_endofpacket_i && sink_channel_i )
-          shift <= ~shift;
-          
-      end
-  end
-
-// transmitting
 
 
 endmodule

@@ -168,7 +168,7 @@ always_ff @( posedge clk_i )
         substring_n[1] <= substring[1];
       end
   end
-always_comb
+always_comb // always @(*)
   begin
     substring[0] = substring_n[0];
     substring[1] = substring_n[1];
@@ -259,6 +259,7 @@ always_comb
     sink_valid_data = '0;
     if( is_valid )
       sink_valid_data = sink_data_i;
+      
   end
 
 // searching for matches
