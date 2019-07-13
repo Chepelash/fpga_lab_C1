@@ -16,10 +16,11 @@ module ram_memory #(
 (* ramstyle = "M10K, no_rw_check" *) logic [DWIDTH-1:0] mem [0:2**AWIDTH-1];
 
 // reading mechanism
-always_ff @( posedge clk_i )
-  begin
-    q_o <= mem[rdpntr_i];  
-  end
+assign q_o = mem[rdpntr_i];
+//always_ff @( posedge clk_i )
+//  begin
+//    q_o <= mem[rdpntr_i];  
+//  end
 
 
 // writing mechanism
