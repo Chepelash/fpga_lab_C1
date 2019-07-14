@@ -8,7 +8,12 @@ module fifo #(
   input                     rd_i,
   input                     wr_i,
   input        [DWIDTH-1:0] wrdata_i,
-  
+  // modification
+  /*
+    if shift > 1 - skip some values in read phase
+  */
+  input        [AWIDTH-1:0] shift_i,
+  // end modification
   output logic              empty_o,
   output logic              full_o,
   output logic [DWIDTH-1:0] rddata_o
@@ -72,7 +77,7 @@ always_comb
   begin
     //
     wrpntr_succ = wrpntr + 1'b1;
-    rdpntr_succ = rdpntr + 1'b1;
+    rdpntr_succ = rdpntr + shift_i;
     //
     wrpntr_next = wrpntr;
     rdpntr_next = rdpntr;
@@ -103,6 +108,10 @@ always_comb
       2'b11: begin
         wrpntr_next = wrpntr_succ;
         rdpntr_next = rdpntr_succ;
+      end
+      
+      default: begin
+        // no operation
       end
     endcase
   end
