@@ -311,7 +311,8 @@ always_ff @( posedge clk_i )
       end
     else
       begin
-        case( state )
+        // is that ok to use comb value?
+        case( next_state )
           IDLE_S: begin
             rd_data <= '0;
             dfifo_shift <= 1'b1;
@@ -364,7 +365,7 @@ always_ff @( posedge clk_i )
       rd_stat <= '0;
     else
       begin
-        case( state )
+        case( next_state )
           IDLE_S: begin
             rd_stat <= '0;
           end
