@@ -2,7 +2,8 @@ module packet_classer #(
   parameter          AMM_DWIDTH    = 32,
   parameter          AST_DWIDTH    = 64,
   parameter          CHANNEL_WIDTH = 1,
-  parameter          REG_DEPTH     = 4
+  parameter          REG_DEPTH     = 4,
+  parameter          BITS_PER_SYMB = 8
 )(
   input              clk_i,
   input              srst_i,
@@ -226,12 +227,12 @@ always_ff @( posedge clk_i )
 
 generate
   genvar n;
-  for( n = 0; n < SEARCH_SIZE; n++ )
+  for( n = 0; n < SEARCH_SIZE / BITS_PER_SYMB; n++ )
     begin : pat_search
       always_comb
         begin
           found[n] = '0;
-          if( substring[PAT_SIZE+n-1:n] == pattern )
+          if( substring[PAT_SIZE+n*BITS_PER_SYMB-1:n*BITS_PER_SYMB] == pattern )
             found[n] = '1;
         end
     end
