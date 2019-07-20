@@ -14,53 +14,50 @@ module packet_classer #(
   avalon_st_if.sink  ast_sink_if 
 );
 
-localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
-localparam PAT_WIDTH = REG_DEPTH - 1;
+localparam EMPTY_WIDTH = $clog2( AST_DWIDTH / 8 );
+localparam PAT_WIDTH   = REG_DEPTH - 1;
+localparam PAT_SIZE    = AMM_DWIDTH * PAT_WIDTH;
+localparam SEARCH_SIZE = AST_DWIDTH*2 - PAT_SIZE;
 
 // grab and use data only when sink.ready = 1, wrken = 1, start = 1 (proper sop) and sink.valid = 1
-logic is_valid;
-
-// delayed end signal nulling for src_channel_o
-logic delayed_sink_end;
+logic                      is_valid;
 
 // pattern of searching. Reversed becouse big-endian
-logic [0:AMM_DWIDTH-1] pattern [0:PAT_WIDTH-1];
+logic [0:PAT_SIZE-1]       pattern;
 // reg[0][0] - Enable
-logic                  wrken;
+logic                      wrken;
 // matching signal
-logic [PAT_WIDTH-1:0]  found_t;
-logic [PAT_WIDTH-1:0]  found_k;
+logic [SEARCH_SIZE-1:0]    found;
 
 // searching area 
-logic [AMM_DWIDTH-1:0] substring [REG_DEPTH-1:0];
-logic [AMM_DWIDTH-1:0] substring_n [REG_DEPTH/2-1:0];
+logic [AST_DWIDTH*2 - 1:0] substring;
+logic [AST_DWIDTH-1:0]     pre_data;
 
 // start and fin of input packet
-logic start;
-logic fin;
-logic start_next;
-logic fin_next;
+logic                      start;
+logic                      start_next;
+logic                      fin_next;
 
-logic [AST_DWIDTH-1:0] sink_valid_data;
+logic [AST_DWIDTH-1:0]     sink_valid_data;
 
 // avalon st reassigning
 // sink
-logic                     sink_ready_o;
-logic [AST_DWIDTH-1:0]    sink_data_i;
-logic                     sink_valid_i;
-logic                     sink_startofpacket_i;
-logic                     sink_endofpacket_i;
-logic [EMPTY_WIDTH-1:0]   sink_empty_i;
-logic [CHANNEL_WIDTH-1:0] sink_channel_i;
+logic                      sink_ready_o;
+logic [AST_DWIDTH-1:0]     sink_data_i;
+logic                      sink_valid_i;
+logic                      sink_startofpacket_i;
+logic                      sink_endofpacket_i;
+logic [EMPTY_WIDTH-1:0]    sink_empty_i;
+logic [CHANNEL_WIDTH-1:0]  sink_channel_i;
 
 // src
-logic                     src_ready_i;
-logic [AST_DWIDTH-1:0]    src_data_o;
-logic                     src_valid_o;
-logic                     src_startofpacket_o;
-logic                     src_endofpacket_o;
-logic [EMPTY_WIDTH-1:0]   src_empty_o;
-logic [CHANNEL_WIDTH-1:0] src_channel_o;
+logic                      src_ready_i;
+logic [AST_DWIDTH-1:0]     src_data_o;
+logic                      src_valid_o;
+logic                      src_startofpacket_o;
+logic                      src_endofpacket_o;
+logic [EMPTY_WIDTH-1:0]    src_empty_o;
+logic [CHANNEL_WIDTH-1:0]  src_channel_o;
 
 // avalon delays
 /*
@@ -152,106 +149,57 @@ control_register #(
 
 
 // data flow in substring. It's a pipeline
-// AST 64 bits. Separating by 2 
 
-// latch conter!!!!111!11
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      begin
-        substring_n[0] <= '0;
-        substring_n[1] <= '0;
-      end
+      pre_data <= '0;
     else
-      begin
-        substring_n[0] <= substring[0];
-        substring_n[1] <= substring[1];
-      end
+      pre_data <= substring[AST_DWIDTH-1:0];
   end
-always_comb // always @(*)
+always_comb
   begin
-    substring[0] = substring_n[0];
-    substring[1] = substring_n[1];
+    substring[AST_DWIDTH-1:0] = pre_data;
     if( is_valid )
-      begin
-        substring[0] = sink_valid_data[AST_DWIDTH/2-1:0];
-        substring[1] = sink_valid_data[AST_DWIDTH-1:AST_DWIDTH/2];
-      end
+      substring[AST_DWIDTH-1:0] = sink_valid_data;
   end
-// end latch conter
+
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      begin
-        substring[2] <= '0;
-        substring[3] <= '0;
-      end
+      substring[AST_DWIDTH*2-1:AST_DWIDTH] <= '0;
     else
       begin
-        if( is_valid )
-          begin
-            substring[2] <= substring[0];
-            substring[3] <= substring[1];
-          end
-
+        if( is_valid ) 
+          substring[AST_DWIDTH*2-1:AST_DWIDTH] <= substring[AST_DWIDTH-1:0];
       end
   end
-// VARIABLE key word search someday
-/*
-generate
-genvar i;
-for( i = 2; i < PAT_WIDTH; i++ )
-  begin : substring_pipeline
-    always_ff @( posedge clk_i )
-      begin
-        if( srst_i )
-          substring[i] <= '0;
-        else
-          begin : main_else
-            if( start_next && sink_valid_i )
-              substring[i] <= substring[i-1];
-          end   : main_else
-      end
-  end  
-endgenerate
-*/
+
 // starting and ending conditions
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      begin
-        start <= '0;
-        fin   <= '0;
-      end
+      start <= '0;      
     else
       begin
         if( fin_next )
-          begin
-            start <= '0;
-            fin   <= '0;
-          end
+          start <= '0;
         else
-          begin
-            start <= start_next;
-            fin   <= fin_next;
-          end
+          start <= start_next;
       end
   end
 
 always_comb
   begin
     start_next = start;
-    fin_next   = fin;
-    if( fin )
-      begin
-        start_next = 0;
-        fin_next   = 0;
-      end
+    fin_next   = 0;    
     if( sink_valid_i && sink_startofpacket_i && wrken && sink_ready_o )
       start_next = 1;
-    else if( sink_valid_i && sink_endofpacket_i )
+    else if( sink_valid_i && sink_endofpacket_i && sink_ready_o && start )
       fin_next = 1;    
   end
+
+  
   
 // grabbing valid data
 always_comb
@@ -259,11 +207,9 @@ always_comb
     sink_valid_data = '0;
     if( is_valid )
       sink_valid_data = sink_data_i;
-      
   end
 
 // searching for matches
-
 
 always_ff @( posedge clk_i )
   begin
@@ -271,7 +217,7 @@ always_ff @( posedge clk_i )
       src_channel_o <= '0;
     else
       begin 
-        if( &found_k || &found_t )
+        if( |found )
           src_channel_o <= '1;
         else if( src_endofpacket_o )
           src_channel_o <= '0;
@@ -279,24 +225,14 @@ always_ff @( posedge clk_i )
   end
 
 generate
-  genvar k;
-  genvar t;
-  for( k = 0; k < PAT_WIDTH; k++ )
-    begin : searching_start
+  genvar n;
+  for( n = 0; n < SEARCH_SIZE; n++ )
+    begin : pat_search
       always_comb
         begin
-          found_k[k] = '0;
-          if( substring[k] == pattern[k] )
-            found_k[k] = '1;
-        end
-    end
-  for( t = 1; t <= PAT_WIDTH; t++ )
-    begin : searching_end
-      always_comb
-        begin
-          found_t[t-1] = '0;
-          if( substring[t] == pattern[t-1] )
-            found_t[t-1] = '1;
+          found[n] = '0;
+          if( substring[PAT_SIZE+n-1:n] == pattern )
+            found[n] = '1;
         end
     end
 endgenerate
