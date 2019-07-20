@@ -1,18 +1,17 @@
 module control_register #(
   parameter REG_WIDTH = 32,
   parameter REG_DEPTH = 4,
-  parameter PAT_WIDTH = REG_DEPTH - 1
+  parameter PAT_WIDTH = REG_DEPTH - 1,
+  parameter PAT_SIZE  = PAT_WIDTH * REG_WIDTH
 )(
-  input                        clk_i,
-  input                        srst_i,
+  input                       clk_i,
+  input                       srst_i,
   
-  avalon_mm_if.slave           amm_slave_if,
+  avalon_mm_if.slave          amm_slave_if,
   
-  output logic [REG_WIDTH-1:0] pattern_o [PAT_WIDTH-1:0],
-  output logic                 wrken_o
+  output logic [0:PAT_SIZE-1] pattern_o,
+  output logic                wrken_o
 );
-
-//localparam PAT_WIDTH = REG_DEPTH - 1;
 
 
 // register map
@@ -26,7 +25,7 @@ module control_register #(
   31:1 - Reserved;
   0    - Enable ( 1 -- ON, 0 -- OFF )  
 */
-logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0];
+logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0] ;
 
 // avalon-mm siglans reassign
 logic [REG_DEPTH-1:0] address_i;
@@ -51,7 +50,7 @@ generate
   genvar i;
   for( i = PAT_WIDTH; i > 0; i-- )
     begin : pattern_assign
-      assign pattern_o[i-1] = reg_map[i];
+      assign pattern_o[REG_WIDTH*(i-1):REG_WIDTH*i-1] = reg_map[i];
     end  
 endgenerate
 
@@ -66,8 +65,9 @@ always_ff @( posedge clk_i )
     if( srst_i )
       begin
         reg_map <= '{default: '1};
+//      reg_map <= '0;
         reg_map[0][0] <= '0;
-      end           
+      end
     else
       begin : main_else
         // reading and writing to reg_map via avalon mm slave
