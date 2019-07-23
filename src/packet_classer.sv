@@ -18,7 +18,7 @@ module packet_classer #(
 localparam EMPTY_WIDTH = $clog2( AST_DWIDTH / 8 );
 localparam PAT_WIDTH   = REG_DEPTH - 1;
 localparam PAT_SIZE    = AMM_DWIDTH * PAT_WIDTH;
-localparam SEARCH_SIZE = AST_DWIDTH*2 - PAT_SIZE;
+localparam SEARCH_SIZE = ( AST_DWIDTH*2 - PAT_SIZE ) / BITS_PER_SYMB;
 
 // grab and use data only when sink.ready = 1, wrken = 1, start = 1 (proper sop) and sink.valid = 1
 logic                      is_valid;
@@ -29,7 +29,6 @@ logic [0:PAT_SIZE-1]       pattern;
 logic                      wrken;
 // matching signal
 logic [SEARCH_SIZE-1:0]    found;
-
 // searching area 
 logic [AST_DWIDTH*2 - 1:0] substring;
 logic [AST_DWIDTH-1:0]     pre_data;
@@ -227,7 +226,7 @@ always_ff @( posedge clk_i )
 
 generate
   genvar n;
-  for( n = 0; n < SEARCH_SIZE / BITS_PER_SYMB; n++ )
+  for( n = 0; n < SEARCH_SIZE; n++ )
     begin : pat_search
       always_comb
         begin
