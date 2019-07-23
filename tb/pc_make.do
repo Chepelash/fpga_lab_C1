@@ -17,6 +17,14 @@ add wave /packet_classer_tb/srst_i
 add wave -radix ascii /packet_classer_tb/DUT/pattern
 add wave /packet_classer_tb/DUT/wrken
 
+add wave /packet_classer_tb/amm_master_if.waitrequest
+add wave -radix hex /packet_classer_tb/amm_master_if.address
+add wave /packet_classer_tb/amm_master_if.write
+add wave -radix ascii /packet_classer_tb/amm_master_if.writedata
+add wave /packet_classer_tb/amm_master_if.read
+add wave -radix ascii /packet_classer_tb/amm_master_if.readdata
+add wave /packet_classer_tb/amm_master_if.readdatavalid
+
 add wave /packet_classer_tb/ast_src_if.ready
 add wave -radix ascii /packet_classer_tb/ast_src_if.data
 add wave /packet_classer_tb/ast_src_if.valid
