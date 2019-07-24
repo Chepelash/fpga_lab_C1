@@ -153,10 +153,12 @@ class AMM_Driver;
         this.amm.address <= i;
         @( posedge clk_i );
         
-        do begin
+//        do begin
+//          @( posedge clk_i );
+//        end
+//        while( !amm.readdatavalid );
+        while( !amm.readdatavalid ) 
           @( posedge clk_i );
-        end
-        while( !amm.readdatavalid );
           
         read_reg_map[i-1] = this.amm.readdata;
       end
