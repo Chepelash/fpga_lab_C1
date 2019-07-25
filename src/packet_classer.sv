@@ -106,6 +106,11 @@ always_ff @( posedge clk_i )
         d_sink_endofpacket_i   <= '0;
         d_sink_empty_i         <= '0;
         d_sink_channel_i       <= '0;
+        src_data_o             <= '0;
+        src_valid_o            <= '0;   
+        src_startofpacket_o    <= '0;
+        src_endofpacket_o      <= '0;
+        src_empty_o            <= '0;
 
       end
     else
