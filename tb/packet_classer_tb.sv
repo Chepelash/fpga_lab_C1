@@ -10,6 +10,7 @@ parameter int STR_LEN        = 12; // bytes
 parameter int BITS_PER_SYMB  = 8;
 parameter int BITS_IN_ASCII  = 7;
 parameter int SYMB_IN_AMM    = AMM_DWIDTH / BITS_PER_SYMB;
+parameter int SYMB_IN_AST    = AST_DWIDTH / BITS_PER_SYMB;
 // somehow ceil == floor, so +1
 parameter int DW_MAX_PACKET_LEN = $ceil( 1514 * 8 / AST_DWIDTH ) + 1; // in dwords
 parameter int DW_MIN_PACKET_LEN = $ceil(   60 * 8 / AST_DWIDTH ) + 1; //
@@ -117,7 +118,7 @@ class AMM_Driver;
   endtask
   
   task write_registers();
-    int                     cntr;
+    int cntr;
     
     pre_write_callback();
     
@@ -175,58 +176,6 @@ class AMM_Driver;
 endclass
 
 
-class ASTPGen;
-  
-  mailbox                 ast_mbox;
-  mailbox                 ast_arb_mbox;
-  mailbox                 amm_gen;
-  
-  bit                     is_put_key_phrase;
-  int                     packet_len;
-  bit [BITS_PER_SYMB-1:0] out_packet[$];
-  bit [EMPTY_SIZE-1:0]    empty;
-  int                     key_phrase_end_idx;
-  
-  function new( mailbox ast_mbox, mailbox ast_arb_mbox, mailbox amm_gen );
-    this.amm_gen = amm_gen;
-    this.ast_mbox = ast_mbox;
-    this.ast_arb_mbox = ast_arb_mbox;
-  endfunction
-  
-  function void pro_randomize();
-    this.is_put_key_phrase  = $urandom_range(1, 0);    
-    this.packet_len         = $urandom_range(MAX_PACKET_LEN, MIN_PACKET_LEN);
-    
-    for( int i = 0; i < packet_len; i++ )
-      this.out_packet.push_back( $urandom_range( BITS_IN_ASCII ) );  
-      
-    this.empty              = $urandom_range(EMPTY_SIZE-1);
-    this.key_phrase_end_idx = $urandom_range(this.packet_len-1-empty, STR_LEN-1);
-  endfunction
-  
-  task insert_key_phrase();
-    // TAKE STR FROM MAILBOX
-    regdata key_phrase;
-    this.amm_gen.get( key_phrase );
-    if( this.is_put_key_phrase )
-      this.out_packet[this.key_phrase_end_idx-:STR_LEN] = key_phrase;
-  endtask
-  
-  task put_ast_data();
-    this.insert_key_phrase();
-    this.ast_mbox.put( this.out_packet );
-    this.ast_mbox.put( this.empty );
-  endtask
-  
-  task run();
-    
-    this.pro_randomize();
-    this.put_ast_data();
-  
-  endtask
-  
-endclass
-
 class AMM_Arbiter;
   mailbox    gen_mbox;
   mailbox    amm_mbox;
@@ -276,11 +225,15 @@ endclass
 class AMMGen;
   mailbox                 amm_mbox;
   mailbox                 amm_arb_mbox;
+  mailbox                 ast_gen_mbox;
+  
   regdata                 key_phrase;
   
-  function new( mailbox amm_mbox, mailbox amm_arb_mbox );
+  function new( mailbox amm_mbox, mailbox amm_arb_mbox,
+                mailbox ast_gen_mbox );
     this.amm_mbox     = amm_mbox;
     this.amm_arb_mbox = amm_arb_mbox;
+    this.ast_gen_mbox = ast_gen_mbox;
   endfunction
 
   function regdata rand_key_phrase();
@@ -302,6 +255,11 @@ class AMMGen;
     this.amm_arb_mbox.put( this.key_phrase );
   endtask
   
+  task to_ast_gen();
+    this.ast_gen_mbox.put( this.key_phrase );
+    $display( "to_ast_gen. Put phrase" );
+  endtask
+  
   task amm_gen();
     repeat( 10 )
       begin
@@ -313,18 +271,287 @@ class AMMGen;
 endclass
 
 
+
+class ASTPGen;
+  
+  mailbox              ast_mbox;
+  mailbox              ast_arb_mbox;
+  mailbox              amm_gen;
+  
+  bit                  is_put_key_phrase;
+  int                  packet_len;
+  bit [AST_DWIDTH-1:0] out_packet[$];
+  bit [EMPTY_SIZE-1:0] empty;
+  int                  key_phrase_end_idx;
+  
+  function new( mailbox ast_mbox, mailbox ast_arb_mbox, mailbox amm_gen );
+    this.amm_gen = amm_gen;
+    this.ast_mbox = ast_mbox;
+    this.ast_arb_mbox = ast_arb_mbox;
+  endfunction
+  
+  function void pro_randomize();
+    bit [BITS_PER_SYMB-1:0] [SYMB_IN_AST-1:0] packet;
+    
+    this.is_put_key_phrase  = $urandom_range(1, 0);    
+    this.packet_len         = $urandom_range(MAX_PACKET_LEN, MIN_PACKET_LEN);
+    for( int i = 0; i < this.packet_len; i++ )
+      begin
+        packet[i % 8] = $urandom_range( 2**BITS_IN_ASCII-1 );
+        if( ( ( i + 1 ) % 8 ) == 0 )
+          this.out_packet.push_back( packet );
+      end
+
+    this.empty              = $urandom_range(EMPTY_SIZE-1);
+    this.key_phrase_end_idx = $urandom_range(this.packet_len-1-empty, STR_LEN-1);
+  endfunction
+  
+  task insert_key_phrase();
+    // TAKE STR FROM MAILBOX
+    regdata key_phrase;
+    this.amm_gen.get( key_phrase );
+    if( this.is_put_key_phrase )
+      this.out_packet[this.key_phrase_end_idx-:STR_LEN] = key_phrase;
+  endtask
+  
+  task put_ast_data();
+    this.insert_key_phrase();
+    this.ast_mbox.put( this.out_packet );
+    this.ast_mbox.put( this.empty );
+    
+    this.ast_arb_mbox.put( this.out_packet );
+    this.ast_arb_mbox.put( this.empty );
+    this.ast_arb_mbox.put( this.is_put_key_phrase );
+  endtask
+  
+  task run();
+    
+    this.pro_randomize();
+    this.put_ast_data();
+    $display("astgen run is done");
+  endtask
+  
+endclass
+
+
+class AstSrcDriver;
+  
+  mailbox gen_mbox;  
+  virtual avalon_st_if asrc;
+  
+  function new( mailbox gen_mbox, virtual avalon_st_if a_src );
+    this.asrc    = a_src;
+    this.gen_mbox = gen_mbox;
+    this.asrc.channel <= '0; 
+    this.asrc.data <= '0; 
+    this.asrc.valid <= '0; 
+    this.asrc.startofpacket <= '0; 
+    this.asrc.endofpacket <= '0; 
+    this.asrc.empty <= '0;
+  endfunction
+  
+  task send_data();
+    bit [AST_DWIDTH-1:0] out_packet[$];
+    bit [EMPTY_SIZE-1:0]    empty;
+    
+    this.gen_mbox.get( out_packet );
+    this.gen_mbox.get( empty );
+    $display("astsrc got data");
+    this.asrc.valid <= '1;
+    for( int i = 0; i < out_packet.size(); i++ )
+      begin
+        
+        this.asrc.data <= out_packet[i];
+        
+        if( i == 0 )
+          begin
+            this.asrc.empty <= '0;
+            this.asrc.endofpacket <= '0;
+            this.asrc.startofpacket <= '1;
+          end
+        else if( i == ( out_packet.size() - 1 ) )
+          begin
+            this.asrc.empty <= empty;
+            this.asrc.endofpacket <= '1;            
+          end
+        else
+          begin
+            this.asrc.startofpacket <= '0;
+            this.asrc.endofpacket <= '0;
+          end
+        
+        if( !this.asrc.ready )
+          begin
+            while( !this.asrc.ready )
+              @( posedge clk_i );
+          end
+        else
+          @( posedge clk_i );
+      end
+    $display("astsrc done");
+    this.asrc.valid <= '0;
+    this.asrc.endofpacket <= '0;
+  endtask
+  
+endclass
+
+
+class AstSinkDriver;
+  mailbox to_arb;
+  virtual avalon_st_if asink;
+  
+  function new( mailbox to_arb, virtual avalon_st_if ast_sink_if );
+    this.to_arb = to_arb;
+    this.asink = ast_sink_if;
+    this.asink.ready <= '1;
+  endfunction
+  
+  task read_data();
+    bit [AST_DWIDTH-1:0] out_packet[$];
+    bit [EMPTY_SIZE-1:0]    empty;
+    bit                     channel;
+    int                     cntr;
+    bit                     done;
+    
+//    this.asink.ready <= '1;
+    cntr = 0;
+    done = 0;
+    while( !this.asink.valid )
+      @( posedge clk_i );
+      
+    while( !done )
+      begin : while_read
+        if( this.asink.valid )
+          begin
+            if( ( cntr == 0 ) && !this.asink.startofpacket )
+              begin
+                $display("AstSinkDriver.read_data - no startofpacket signal");
+                $stop();
+              end
+            if( cntr == 0 )
+              $display("%h", this.asink.data);
+            if( this.asink.endofpacket )
+              begin
+                done = 1;
+                empty = this.asink.empty;
+              end
+            cntr += 1;
+            out_packet.push_back( this.asink.data );
+            @( posedge clk_i );
+          end
+        else
+          begin : not_valid
+            @( posedge clk_i );
+          end   : not_valid
+      end   : while_read
+    
+    
+    this.to_arb.put( out_packet );
+    this.to_arb.put( empty );
+    this.to_arb.put( channel );
+    
+  endtask
+  
+endclass
+
+
+class AstArbiter;
+  AstSrcDriver ast_src;
+  AstSinkDriver ast_sink;
+  mailbox from_gen;
+  mailbox from_sink;
+  
+  function new( AstSrcDriver ast_src, 
+                AstSinkDriver ast_sink,
+                mailbox from_gen, mailbox from_sink );
+    this.ast_sink = ast_sink;
+    this.ast_src = ast_src;
+    this.from_gen = from_gen;
+    this.from_sink = from_sink;
+    
+  endfunction
+  
+  task check_data();
+    bit [AST_DWIDTH-1:0] out_packet_gen[$];
+    bit [EMPTY_SIZE-1:0] empty_gen;
+    bit                  channel_gen;
+    
+    bit [AST_DWIDTH-1:0] out_packet_sink[$];
+    bit [EMPTY_SIZE-1:0] empty_sink;
+    bit                  channel_sink;
+    
+    $display( "Check_data" );
+    this.from_gen.get( out_packet_gen );
+    this.from_gen.get( empty_gen );
+    this.from_gen.get( channel_gen );
+    $display( "got data" );
+    fork
+      this.ast_src.send_data();
+      this.ast_sink.read_data();
+    join
+    $display("send and read done");
+    
+    this.from_sink.get( out_packet_sink );
+    this.from_sink.get( empty_sink );
+    this.from_sink.get( channel_sink );
+    
+    if( out_packet_sink != out_packet_gen )
+      begin
+        $display("AstArbiter.check_data - packet mismatch");
+        $stop();
+      end
+    if( empty_sink != empty_gen )
+      begin
+        $display("AstArbiter.check_data - empty mismatch");
+        $stop();
+      end
+    if( channel_sink != channel_gen )
+      begin
+        $display("AstArbiter.check_data - channel mismatch");
+        $stop();
+      end
+    
+  endtask
+  
+  task run();
+    this.check_data();
+  endtask
+  
+endclass
+
+
+task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast );
+  amm_gen.to_ast_gen();
+  gen.run();
+  ast.run();  
+endtask
+
+
 AMM_Driver  amm_driver;
 AMM_Arbiter amm_arbiter;
 AMMGen      amm_gen;
 
+ASTPGen ast_gen;
+AstSrcDriver ast_src;
+AstSinkDriver ast_sink;
+AstArbiter ast_arb;
 
 mailbox gen2amm_driver = new;
 mailbox amm_dr2arb = new;
 mailbox gen2amm_arb = new;
 mailbox gen2ast_driver = new;
 mailbox gen2ast_arb = new;
+mailbox amm_gen_mbox = new;
+mailbox asink2arb = new;
 //  function new( virtual avalon_mm_if amm, mailbox gen_mbox,
 //                mailbox arb_mbox );
+
+task automatic amm_test( AMMGen amm_gen, AMM_Arbiter amm_arbiter );
+  fork 
+    amm_gen.amm_gen();
+    amm_arbiter.run();
+  join
+endtask
 
 initial
   begin
@@ -336,8 +563,20 @@ initial
     apply_rst();
     
     $display("Starting testbench!");
+        // ast
+    ast_gen = new( gen2ast_driver, gen2ast_arb, amm_gen_mbox );
+    ast_src = new( gen2ast_driver, ast_src_if );
+    // function new( mailbox to_arb, virtual avalon_st_if ast_sink_if );
+    ast_sink = new( asink2arb, ast_sink_if );
+    /*function new( AstSrcDriver ast_src, 
+                AstSinkDriver ast_sink,
+                mailbox from_gen, mailbox from_sink );
+                */
+    ast_arb = new( ast_src, ast_sink, gen2ast_arb, asink2arb );
+    
+    //amm
 // function new( mailbox amm_mbox, mailbox amm_arb_mbox );
-    amm_gen = new( gen2amm_driver, gen2amm_arb ); 
+    amm_gen = new( gen2amm_driver, gen2amm_arb, amm_gen_mbox ); 
 //  function new( virtual avalon_mm_if amm, mailbox gen_mbox,
 //                mailbox arb_mbox );
     amm_driver = new( amm_master_if, gen2amm_driver, amm_dr2arb ); 
@@ -345,11 +584,26 @@ initial
 //              AMM_Driver amm_driver);    
     amm_arbiter = new( gen2amm_arb, amm_dr2arb, amm_driver );
     
-    fork 
-      amm_gen.amm_gen();
-      amm_arbiter.run();
-    join
-    $display("Everything is OK!");
+    amm_test( amm_gen, amm_arbiter );
+    
+    // ast
+    ast_gen = new( gen2ast_driver, gen2ast_arb, amm_gen_mbox );
+    ast_src = new( gen2ast_driver, ast_src_if );
+    // function new( mailbox to_arb, virtual avalon_st_if ast_sink_if );
+    ast_sink = new( asink2arb, ast_sink_if );
+    /*function new( AstSrcDriver ast_src, 
+                AstSinkDriver ast_sink,
+                mailbox from_gen, mailbox from_sink );
+                */
+    ast_arb = new( ast_src, ast_sink, gen2ast_arb, asink2arb );
+    
+    ast_test( amm_gen, ast_gen, ast_arb );
+    
+//    amm_gen.to_ast_gen();
+//    ast_gen.run();
+//    ast_src.send_data();
+
+    $display("It's fine");
     $stop();
     
   end
