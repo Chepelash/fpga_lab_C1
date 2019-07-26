@@ -211,8 +211,8 @@ class AMM_Arbiter;
       end
   endtask
   
-  task run();
-    repeat( 10 )
+  task run( int num = 1 );
+    repeat( num )
       begin
         this.write_registers();
         this.check_data();
@@ -255,13 +255,16 @@ class AMMGen;
     this.amm_arb_mbox.put( this.key_phrase );
   endtask
   
-  task to_ast_gen();
-    this.ast_gen_mbox.put( this.key_phrase );
-    $display( "to_ast_gen. Put phrase" );
+  task to_ast_gen(int num = 1);
+    repeat( num )
+      begin
+        this.ast_gen_mbox.put( this.key_phrase );
+        $display( "to_ast_gen. Put phrase" );
+      end
   endtask
   
-  task amm_gen();
-    repeat( 10 )
+  task amm_gen( int num = 1 );
+    repeat( num )
       begin
         this.key_phrase = this.rand_key_phrase();
         this.put_amm_data();
@@ -283,6 +286,8 @@ class ASTPGen;
   bit [AST_DWIDTH-1:0] out_packet[$];
   bit [EMPTY_SIZE-1:0] empty;
   int                  key_phrase_end_idx;
+  int                  key_phrase_end_byte;
+  int                  key_phrase_end_dw;
   
   function new( mailbox ast_mbox, mailbox ast_arb_mbox, mailbox amm_gen );
     this.amm_gen = amm_gen;
@@ -303,15 +308,44 @@ class ASTPGen;
       end
 
     this.empty              = $urandom_range(EMPTY_SIZE-1);
-    this.key_phrase_end_idx = $urandom_range(this.packet_len-1-empty, STR_LEN-1);
+//    this.key_phrase_end_idx = $urandom_range(this.packet_len-1-empty, STR_LEN-1);
+    this.key_phrase_end_byte = $urandom_range(SYMB_IN_AST-1);
+    this.key_phrase_end_dw   = $urandom_range(DW_MAX_PACKET_LEN-1, 1);
+    if( this.key_phrase_end_dw == 1 )
+      begin
+      //                                                   index
+        if( ( SYMB_IN_AST + this.key_phrase_end_byte ) < ( SYMB_IN_AMM * AMM_DATA_LEN - 1 ) )
+          begin
+            this.key_phrase_end_byte += (SYMB_IN_AMM * AMM_DATA_LEN - 1 - \\
+                                         SYMB_IN_AST - this.key_phrase_end_byte);
+          end
+      end
   endfunction
   
   task insert_key_phrase();
     // TAKE STR FROM MAILBOX
     regdata key_phrase;
+    bit t_unp_key_phrase [STR_LEN-1:0] [BITS_PER_SYMB-1:0];
+    bit [BITS_PER_SYMB-1:0] t_key_phrase [STR_LEN-1:0];
+    int dw_ind;
+    int byte_ind;
+    
+    
     this.amm_gen.get( key_phrase );
     if( this.is_put_key_phrase )
-      this.out_packet[this.key_phrase_end_idx-:STR_LEN] = key_phrase;
+      begin
+//        dw_ind = this.key_phrase_end_dw;
+//        byte_ind = this.key_phrase_end_byte*BITS_PER_SYMB;
+//        
+//        {>>{t_unp_key_phrase}} = key_phrase;
+//        t_key_phrase = {>>{t_unp_key_phrase[:]}};
+//        for( int i = 0; i < STR_LEN; i++ )
+//          begin
+//            
+//            this.out_packet[dw_ind][byte_ind-:BITS_PER_SYMB] = 
+//          end
+//        this.out_packet[this.key_phrase_end_idx-:STR_LEN] = key_phrase;
+      end
   endtask
   
   task put_ast_data();
@@ -324,11 +358,13 @@ class ASTPGen;
     this.ast_arb_mbox.put( this.is_put_key_phrase );
   endtask
   
-  task run();
-    
-    this.pro_randomize();
-    this.put_ast_data();
-    $display("astgen run is done");
+  task run( int num = 1 );
+    repeat( num )
+      begin
+        this.pro_randomize();
+        this.put_ast_data();
+        $display("astgen run is done");
+      end
   endtask
   
 endclass
@@ -513,17 +549,18 @@ class AstArbiter;
     
   endtask
   
-  task run();
-    this.check_data();
+  task run( int num = 1 );
+    repeat( num )
+      this.check_data();
   endtask
   
 endclass
 
 
-task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast );
-  amm_gen.to_ast_gen();
-  gen.run();
-  ast.run();  
+task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast, int num = 10 );
+  amm_gen.to_ast_gen( num );
+  gen.run( num );
+  ast.run( num );
 endtask
 
 
@@ -546,10 +583,10 @@ mailbox asink2arb = new;
 //  function new( virtual avalon_mm_if amm, mailbox gen_mbox,
 //                mailbox arb_mbox );
 
-task automatic amm_test( AMMGen amm_gen, AMM_Arbiter amm_arbiter );
+task automatic amm_test( AMMGen amm_gen, AMM_Arbiter amm_arbiter, int num = 1 );
   fork 
-    amm_gen.amm_gen();
-    amm_arbiter.run();
+    amm_gen.amm_gen( num );
+    amm_arbiter.run( num );
   join
 endtask
 
@@ -584,7 +621,7 @@ initial
 //              AMM_Driver amm_driver);    
     amm_arbiter = new( gen2amm_arb, amm_dr2arb, amm_driver );
     
-    amm_test( amm_gen, amm_arbiter );
+    amm_test( amm_gen, amm_arbiter, 10 );
     
     // ast
     ast_gen = new( gen2ast_driver, gen2ast_arb, amm_gen_mbox );
@@ -597,7 +634,7 @@ initial
                 */
     ast_arb = new( ast_src, ast_sink, gen2ast_arb, asink2arb );
     
-    ast_test( amm_gen, ast_gen, ast_arb );
+    ast_test( amm_gen, ast_gen, ast_arb, 10 );
     
 //    amm_gen.to_ast_gen();
 //    ast_gen.run();
