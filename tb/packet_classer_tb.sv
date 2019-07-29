@@ -153,11 +153,8 @@ class AMM_Driver;
       begin
         this.amm.address <= i;
         @( posedge clk_i );
-        
-//        do begin
-//          @( posedge clk_i );
-//        end
-//        while( !amm.readdatavalid );
+
+
         while( !amm.readdatavalid ) 
           @( posedge clk_i );
           
@@ -258,7 +255,19 @@ class AMMGen;
   task to_ast_gen(int num = 1);
     repeat( num )
       begin
-        this.ast_gen_mbox.put( this.key_phrase );
+        bit [AMM_DWIDTH*AMM_DATA_LEN-1:0] t_reg;
+//        for( int i = 0; i < AMM_DATA_LEN; i++ )
+//          t_reg[AMM_DWIDTH*i+:AMM_DWIDTH] = this.key_phrase[i];
+        
+        for( int i = 0; i < AMM_DATA_LEN; i++ )
+          begin
+            for( int j = 0; j < SYMB_IN_AMM; j++ )
+              t_reg[i*AMM_DWIDTH+BITS_PER_SYMB*j+:BITS_PER_SYMB] = this.key_phrase[AMM_DATA_LEN-1-i][BITS_PER_SYMB*j+:BITS_PER_SYMB];
+          end
+          
+        
+        
+        this.ast_gen_mbox.put( t_reg );
         $display( "to_ast_gen. Put phrase" );
       end
   endtask
@@ -298,6 +307,8 @@ class ASTPGen;
   function void pro_randomize();
     bit [BITS_PER_SYMB-1:0] [SYMB_IN_AST-1:0] packet;
     
+    this.out_packet = {};
+    
     this.is_put_key_phrase  = $urandom_range(1, 0);    
     this.packet_len         = $urandom_range(MAX_PACKET_LEN, MIN_PACKET_LEN);
     for( int i = 0; i < this.packet_len; i++ )
@@ -309,14 +320,14 @@ class ASTPGen;
 
     this.empty              = $urandom_range(EMPTY_SIZE-1);
 //    this.key_phrase_end_idx = $urandom_range(this.packet_len-1-empty, STR_LEN-1);
-    this.key_phrase_end_byte = $urandom_range(SYMB_IN_AST-1);
+    this.key_phrase_end_byte = $urandom_range(SYMB_IN_AST, 1);
     this.key_phrase_end_dw   = $urandom_range(DW_MAX_PACKET_LEN-1, 1);
     if( this.key_phrase_end_dw == 1 )
       begin
       //                                                   index
         if( ( SYMB_IN_AST + this.key_phrase_end_byte ) < ( SYMB_IN_AMM * AMM_DATA_LEN - 1 ) )
           begin
-            this.key_phrase_end_byte += (SYMB_IN_AMM * AMM_DATA_LEN - 1 - \\
+            this.key_phrase_end_byte += (SYMB_IN_AMM * AMM_DATA_LEN - 1 - 
                                          SYMB_IN_AST - this.key_phrase_end_byte);
           end
       end
@@ -324,6 +335,7 @@ class ASTPGen;
   
   task insert_key_phrase();
     // TAKE STR FROM MAILBOX
+    bit [AMM_DWIDTH*AMM_DATA_LEN-1:0] t_reg;
     regdata key_phrase;
     bit t_unp_key_phrase [STR_LEN-1:0] [BITS_PER_SYMB-1:0];
     bit [BITS_PER_SYMB-1:0] t_key_phrase [STR_LEN-1:0];
@@ -331,9 +343,28 @@ class ASTPGen;
     int byte_ind;
     
     
-    this.amm_gen.get( key_phrase );
+    this.amm_gen.get( t_reg );
+//    $display( "%h", t_reg );
     if( this.is_put_key_phrase )
       begin
+        dw_ind = this.key_phrase_end_dw;
+        byte_ind = this.key_phrase_end_byte;
+//        for( int i = STR_LEN; i > 0; i-- )
+        for( int i = 0; i < STR_LEN; i++ )
+          begin
+            this.out_packet[dw_ind][BITS_PER_SYMB*byte_ind-1-:BITS_PER_SYMB] = t_reg[BITS_PER_SYMB*STR_LEN-1-BITS_PER_SYMB*i-:BITS_PER_SYMB];
+//            this.out_packet[dw_ind][BITS_PER_SYMB*byte_ind-1-:BITS_PER_SYMB] = t_reg[BITS_PER_SYMB*i+:BITS_PER_SYMB];
+            $display("dw_ind = %d, byte_ind = %d, t_reg_ind = %d", dw_ind, BITS_PER_SYMB*byte_ind-1, BITS_PER_SYMB*STR_LEN-1-BITS_PER_SYMB*i);
+            if( byte_ind == 1 )
+              begin
+                byte_ind = SYMB_IN_AST;
+                dw_ind += 1;
+              end
+            else
+              byte_ind -= 1;
+            
+          end
+        
 //        dw_ind = this.key_phrase_end_dw;
 //        byte_ind = this.key_phrase_end_byte*BITS_PER_SYMB;
 //        
@@ -470,6 +501,7 @@ class AstSinkDriver;
               begin
                 done = 1;
                 empty = this.asink.empty;
+                channel = this.asink.channel;
               end
             cntr += 1;
             out_packet.push_back( this.asink.data );
@@ -544,6 +576,9 @@ class AstArbiter;
     if( channel_sink != channel_gen )
       begin
         $display("AstArbiter.check_data - channel mismatch");
+        $display("ch_sink = %d; ch_gen = %d", channel_sink, channel_gen);
+//        $display("%p", out_packet_gen);
+//        $display("%p", out_packet_sink);
         $stop();
       end
     
@@ -557,7 +592,8 @@ class AstArbiter;
 endclass
 
 
-task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast, int num = 10 );
+task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast, AMM_Driver amm_driver, int num = 10 );
+  amm_driver.wrk_enable( 1 );
   amm_gen.to_ast_gen( num );
   gen.run( num );
   ast.run( num );
@@ -624,17 +660,17 @@ initial
     amm_test( amm_gen, amm_arbiter, 10 );
     
     // ast
-    ast_gen = new( gen2ast_driver, gen2ast_arb, amm_gen_mbox );
-    ast_src = new( gen2ast_driver, ast_src_if );
-    // function new( mailbox to_arb, virtual avalon_st_if ast_sink_if );
-    ast_sink = new( asink2arb, ast_sink_if );
+//    ast_gen = new( gen2ast_driver, gen2ast_arb, amm_gen_mbox );
+//    ast_src = new( gen2ast_driver, ast_src_if );
+//    // function new( mailbox to_arb, virtual avalon_st_if ast_sink_if );
+//    ast_sink = new( asink2arb, ast_sink_if );
     /*function new( AstSrcDriver ast_src, 
                 AstSinkDriver ast_sink,
                 mailbox from_gen, mailbox from_sink );
                 */
-    ast_arb = new( ast_src, ast_sink, gen2ast_arb, asink2arb );
+//    ast_arb = new( ast_src, ast_sink, gen2ast_arb, asink2arb );
     
-    ast_test( amm_gen, ast_gen, ast_arb, 10 );
+    ast_test( amm_gen, ast_gen, ast_arb, amm_driver, 10 );
     
 //    amm_gen.to_ast_gen();
 //    ast_gen.run();

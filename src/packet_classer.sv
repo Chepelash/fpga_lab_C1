@@ -18,7 +18,8 @@ module packet_classer #(
 localparam EMPTY_WIDTH = $clog2( AST_DWIDTH / 8 );
 localparam PAT_WIDTH   = REG_DEPTH - 1;
 localparam PAT_SIZE    = AMM_DWIDTH * PAT_WIDTH;
-localparam SEARCH_SIZE = ( AST_DWIDTH*2 - PAT_SIZE ) / BITS_PER_SYMB;
+
+localparam SEARCH_SIZE = ( AST_DWIDTH*3 - PAT_SIZE ) / BITS_PER_SYMB + 1;
 
 // grab and use data only when sink.ready = 1, wrken = 1, start = 1 (proper sop) and sink.valid = 1
 logic                      is_valid;
@@ -30,7 +31,7 @@ logic                      wrken;
 // matching signal
 logic [SEARCH_SIZE-1:0]    found;
 // searching area 
-logic [AST_DWIDTH*2 - 1:0] substring;
+logic [AST_DWIDTH*3 - 1:0] substring;
 logic [AST_DWIDTH-1:0]     pre_data;
 
 // start and fin of input packet
@@ -172,11 +173,16 @@ always_comb
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      substring[AST_DWIDTH*2-1:AST_DWIDTH] <= '0;
+      begin
+        substring[AST_DWIDTH*3-1:AST_DWIDTH] <= '0;
+      end
     else
       begin
         if( is_valid ) 
-          substring[AST_DWIDTH*2-1:AST_DWIDTH] <= substring[AST_DWIDTH-1:0];
+          begin
+            substring[AST_DWIDTH*2-1-:AST_DWIDTH] <= substring[AST_DWIDTH-1:0];
+            substring[AST_DWIDTH*3-1-:AST_DWIDTH] <= substring[AST_DWIDTH*2-1-:AST_DWIDTH];
+          end
       end
   end
 
@@ -236,7 +242,7 @@ generate
       always_comb
         begin
           found[n] = '0;
-          if( substring[PAT_SIZE+n*BITS_PER_SYMB-1:n*BITS_PER_SYMB] == pattern )
+          if( substring[PAT_SIZE+n*BITS_PER_SYMB-1-:PAT_SIZE] == pattern )
             found[n] = '1;
         end
     end
