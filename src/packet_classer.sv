@@ -151,9 +151,6 @@ control_register #(
   .wrken_o        ( wrken        )
 );
 
-
-
-
 // data flow in substring. It's a pipeline
 
 always_ff @( posedge clk_i )
@@ -163,6 +160,7 @@ always_ff @( posedge clk_i )
     else
       pre_data <= substring[AST_DWIDTH-1:0];
   end
+
 always_comb
   begin
     substring[AST_DWIDTH-1:0] = pre_data;
