@@ -36,7 +36,7 @@ class AstArbiter;
     fork
       this.ast_src.send_data();
       this.ast_sink.read_data();
-    join
+    join_none
 
     this.from_sink.get( out_packet_sink );
     this.from_sink.get( empty_sink );
@@ -58,7 +58,7 @@ class AstArbiter;
         $display("Channel read = %d; channel generated = %d", channel_sink, channel_gen);
         $stop();
       end
-    $display("AST_Arbiter.chack_data - read successfully");
+    $display("AST_Arbiter.check_data - read successfully");
   endtask
   
   task run( int num = 1 );

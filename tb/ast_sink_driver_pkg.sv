@@ -22,8 +22,11 @@ class AstSinkDriver;
     
     cntr = 0;
     done = 0;
-    while( !this.asink.valid )
-      @( posedge this.asink.clk_i );
+
+    do begin
+        @( posedge this.asink.clk_i );  
+    end
+      while( !this.asink.valid );
       
     while( !done )
       begin : while_read
@@ -34,22 +37,23 @@ class AstSinkDriver;
                 $display("AstSinkDriver.read_data - no startofpacket signal");
                 $stop();
               end
+            cntr += 1;
+            out_packet.push_back( this.asink.data );
             if( this.asink.endofpacket )
               begin
                 done    = 1;
                 empty   = this.asink.empty;
                 channel = this.asink.channel;
               end
-            cntr += 1;
-            out_packet.push_back( this.asink.data );
-            @( posedge this.asink.clk_i );
+            else
+              @( posedge this.asink.clk_i );
+
           end
         else
           begin : not_valid
             @( posedge this.asink.clk_i );
           end   : not_valid
       end   : while_read
-    
     
     this.to_arb.put( out_packet );
     this.to_arb.put( empty );
