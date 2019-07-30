@@ -8,6 +8,16 @@ vlog -sv ../src/avalon_st_if.sv
 vlog -sv ../src/control_register.sv
 vlog -sv ../src/packet_classer.sv
 
+vlog -sv ./tb_parameters_pkg.sv
+vlog -sv ./amm_driver_pkg.sv
+vlog -sv ./amm_arbiter_pkg.sv
+vlog -sv ./amm_gen_pkg.sv
+
+vlog -sv ./ast_src_driver_pkg.sv
+vlog -sv ./ast_sink_driver_pkg.sv
+vlog -sv ./ast_gen_pkg.sv
+vlog -sv ./ast_arbiter_pkg.sv
+
 vlog -sv ./packet_classer_tb.sv
 
 vsim -novopt packet_classer_tb 
