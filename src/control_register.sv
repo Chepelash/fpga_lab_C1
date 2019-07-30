@@ -27,6 +27,7 @@ module control_register #(
 */
 logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0] ;
 
+
 // avalon-mm siglans reassign
 logic [REG_DEPTH-1:0] address_i;
 logic                 write_i;
@@ -58,8 +59,8 @@ endgenerate
 // wrken = reg_map[0][0]
 assign wrken_o = reg_map[0][0];
 
-
 // reg_map control
+// writing
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
@@ -68,35 +69,21 @@ always_ff @( posedge clk_i )
 //      reg_map <= '0;
         reg_map[0][0] <= '0;
       end
+
     else
-      begin : main_else
-        // reading and writing to reg_map via avalon mm slave
-        case( { read_i, write_i } )
-          2'b10: begin // read
-            readdata_o      <= reg_map[address_i];
-            readdatavalid_o <= '1;
-          end
-          
-          2'b01: begin // write
-            reg_map[address_i] <= writedata_i;            
-            readdatavalid_o    <= '0;
-          end
-          
-          2'b11: begin // read/write
-            // data writing
-            reg_map[address_i] <= writedata_i;        
-            // data reading
-            readdata_o         <= reg_map[address_i]; 
-            readdatavalid_o    <= '1;
-          end
-          
-          default: begin // no op
-            readdatavalid_o <= '0;
-          end
-        endcase
-      end   : main_else
+      begin
+        if( write_i )
+          reg_map[address_i] <= writedata_i;         
+      end
   end
 
+
+// reading
+assign readdatavalid_o = read_i;
+assign readdata_o      = reg_map[address_i];
+
+// waitrequest
+assign waitrequest_o = '0;
 
 
 

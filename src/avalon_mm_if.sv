@@ -1,6 +1,8 @@
 interface avalon_mm_if #(
   parameter DWIDTH = 32,
   parameter NUM_REGS = 4
+)(
+  input clk_i
 );
 
 localparam AWIDTH = $clog2( NUM_REGS ) + 1;
@@ -13,7 +15,7 @@ logic              read;
 logic [DWIDTH-1:0] readdata;
 logic              readdatavalid;
 
-modport slave ( 
+modport slave (
   input address, 
   input write, 
   input writedata, 
