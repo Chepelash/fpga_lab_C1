@@ -32,6 +32,22 @@ class AMMGen;
       end
     return t_key_phrase;
   endfunction
+  
+  function regdata put_hello_world();
+    regdata t_key_phrase;
+    bit [SYMB_IN_AMM-1:0][BITS_PER_SYMB-1:0] pack;
+    string hello_world = "hello,world!";
+    int cntr = STR_LEN-1;
+    for( int i = 0; i < AMM_DATA_LEN; i++ )
+      begin
+        for( int j = 0; j < SYMB_IN_AMM; j++ )
+          begin
+            pack[j] = hello_world[cntr--];            
+          end
+        t_key_phrase[i] = pack;
+      end
+    return t_key_phrase;
+  endfunction
     
   task put_amm_data();
     this.amm_mbox.put( this.key_phrase );
@@ -56,7 +72,8 @@ class AMMGen;
   task amm_gen( int num = 1 );
     repeat( num )
       begin
-        this.key_phrase = this.rand_key_phrase();
+//        this.key_phrase = this.rand_key_phrase();
+        this.key_phrase = this.put_hello_world();
         this.put_amm_data();
       end
   endtask

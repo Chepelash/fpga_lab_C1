@@ -1,8 +1,9 @@
 module control_register #(
-  parameter REG_WIDTH = 32,
-  parameter REG_DEPTH = 4,
-  parameter PAT_WIDTH = REG_DEPTH - 1,
-  parameter PAT_SIZE  = PAT_WIDTH * REG_WIDTH
+  parameter REG_WIDTH    = 32,
+  parameter REG_DEPTH    = 4,
+  parameter PAT_WIDTH    = REG_DEPTH - 1,
+  parameter PAT_SIZE     = PAT_WIDTH * REG_WIDTH,
+  parameter BIT_PER_SYMB = 8  
 )(
   input                       clk_i,
   input                       srst_i,
@@ -13,6 +14,8 @@ module control_register #(
   output logic                wrken_o
 );
 
+localparam SYMB_IN_REG = REG_WIDTH / BIT_PER_SYMB;
+localparam BITS_IN_PAT = REG_WIDTH * PAT_WIDTH;
 
 // register map
 /*
@@ -27,34 +30,32 @@ module control_register #(
 */
 logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0] ;
 
-
-// avalon-mm siglans reassign
-logic [REG_DEPTH-1:0] address_i;
-logic                 write_i;
-logic [REG_WIDTH-1:0] writedata_i;
-logic                 read_i;
-logic                 waitrequest_o;
-logic [REG_WIDTH-1:0] readdata_o; 
-logic                 readdatavalid_o;
-
-assign address_i   = amm_slave_if.address;
-assign write_i     = amm_slave_if.write;
-assign writedata_i = amm_slave_if.writedata;
-assign read_i      = amm_slave_if.read;
-
-assign amm_slave_if.waitrequest   = waitrequest_o;
-assign amm_slave_if.readdata      = readdata_o; 
-assign amm_slave_if.readdatavalid = readdatavalid_o;
-
 // pattern assign to key symbols
-generate
-  genvar i;
-  for( i = PAT_WIDTH; i > 0; i-- )
-    begin : pattern_assign
-      assign pattern_o[REG_WIDTH*(i-1):REG_WIDTH*i-1] = reg_map[i];
-    end  
-endgenerate
+//generate
+//  genvar i;
+//  for( i = PAT_WIDTH; i > 0; i-- )
+//    begin : pattern_assign
+//      assign pattern_o[REG_WIDTH*(i-1):REG_WIDTH*i-1] = reg_map[i];
+//    end  
+//endgenerate
 
+logic [PAT_SIZE-1:0] pattern;
+
+generate
+  genvar i, j, m;
+  for( j = 0; j < PAT_WIDTH; j++ )
+    begin : pattern_assign
+      for( i = 0; i < SYMB_IN_REG; i++ ) 
+        begin : doing_patterns
+          assign pattern[j*REG_WIDTH+i*BIT_PER_SYMB+:BIT_PER_SYMB] = reg_map[REG_DEPTH-j-1][REG_WIDTH-(i+1)*BIT_PER_SYMB+:BIT_PER_SYMB];
+        end
+    end  
+  
+  for( m = 0; m < BITS_IN_PAT; m = m + BIT_PER_SYMB )
+    begin : pattern_reorder
+      assign pattern_o[m+:BIT_PER_SYMB] = pattern[BITS_IN_PAT-m-BIT_PER_SYMB+:BIT_PER_SYMB];
+    end
+endgenerate
 
 // wrken = reg_map[0][0]
 assign wrken_o = reg_map[0][0];
@@ -65,26 +66,24 @@ always_ff @( posedge clk_i )
   begin
     if( srst_i )
       begin
-        reg_map <= '{default: '1};
-//      reg_map <= '0;
+        reg_map       <= '{default: '1};
         reg_map[0][0] <= '0;
       end
 
     else
       begin
-        if( write_i )
-          reg_map[address_i] <= writedata_i;         
+        if( amm_slave_if.write )
+          reg_map[amm_slave_if.address] <= amm_slave_if.writedata;         
       end
   end
 
 
 // reading
-assign readdatavalid_o = read_i;
-assign readdata_o      = reg_map[address_i];
+assign amm_slave_if.readdatavalid = amm_slave_if.read;
+assign amm_slave_if.readdata      = reg_map[amm_slave_if.address];
 
 // waitrequest
-assign waitrequest_o = '0;
-
+assign amm_slave_if.waitrequest = '0;
 
 
 endmodule

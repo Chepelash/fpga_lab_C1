@@ -43,13 +43,13 @@ assign full_o  = full;
 assign empty_o = empty;
 
 // reading mechanism
-assign q_o = mem[rdpntr];
+assign rddata_o = mem[rdpntr];
 
 // writing mechanism
 always_ff @( posedge clk_i )
   begin
-    if( wren_i )
-      mem[wrpntr] <= data_i;
+    if( wren )
+      mem[wrpntr] <= wrdata_i;
   end
 
 
