@@ -36,24 +36,22 @@ logic empty;
 logic empty_next;
 logic wren;
 
+(* ramstyle = "M10K, no_rw_check" *) logic [DWIDTH-1:0] mem [0:2**AWIDTH-1];
+
 assign wren    = wr_i & ( ~full );
 assign full_o  = full;
 assign empty_o = empty;
 
-ram_memory #(
-  .DWIDTH   ( DWIDTH   ),
-  .AWIDTH   ( AWIDTH   )
-) mem       (
-  .clk_i    ( clk_i    ),
-  
-  .wren_i   ( wren     ),
-  .wrpntr_i ( wrpntr   ),
-  .data_i   ( wrdata_i ),
-  
-  .rdpntr_i ( rdpntr   ),
-  
-  .q_o      ( rddata_o )
-);
+// reading mechanism
+assign q_o = mem[rdpntr];
+
+// writing mechanism
+always_ff @( posedge clk_i )
+  begin
+    if( wren_i )
+      mem[wrpntr] <= data_i;
+  end
+
 
 always_ff @( posedge clk_i )
   begin
