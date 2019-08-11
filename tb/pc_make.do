@@ -25,6 +25,7 @@ vsim -novopt packet_classer_tb
 add wave /packet_classer_tb/clk_i
 add wave /packet_classer_tb/srst_i
 add wave -radix ascii /packet_classer_tb/DUT/pattern
+add wave -radix ascii /packet_classer_tb/DUT/cntr_regs/reg_map
 add wave /packet_classer_tb/DUT/wrken
 
 add wave /packet_classer_tb/amm_master_if.waitrequest

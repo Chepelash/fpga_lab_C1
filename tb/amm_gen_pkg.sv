@@ -37,12 +37,12 @@ class AMMGen;
     regdata t_key_phrase;
     bit [SYMB_IN_AMM-1:0][BITS_PER_SYMB-1:0] pack;
     string hello_world = "hello,world!";
-    int cntr = STR_LEN-1;
+    int cntr;
     for( int i = 0; i < AMM_DATA_LEN; i++ )
       begin
         for( int j = 0; j < SYMB_IN_AMM; j++ )
           begin
-            pack[j] = hello_world[cntr--];            
+            pack[j] = hello_world[cntr++];            
           end
         t_key_phrase[i] = pack;
       end
@@ -57,23 +57,15 @@ class AMMGen;
   task to_ast_gen(int num = 1);
     repeat( num )
       begin
-        bit [AMM_DWIDTH*AMM_DATA_LEN-1:0] t_reg;
-
-        for( int i = 0; i < AMM_DATA_LEN; i++ )
-          begin
-            for( int j = 0; j < SYMB_IN_AMM; j++ )
-              t_reg[i*AMM_DWIDTH+BITS_PER_SYMB*j+:BITS_PER_SYMB] = this.key_phrase[AMM_DATA_LEN-1-i][BITS_PER_SYMB*j+:BITS_PER_SYMB];
-          end
-
-        this.ast_gen_mbox.put( t_reg );
+        this.ast_gen_mbox.put( this.key_phrase );
       end
   endtask
   
   task amm_gen( int num = 1 );
     repeat( num )
       begin
-//        this.key_phrase = this.rand_key_phrase();
-        this.key_phrase = this.put_hello_world();
+        this.key_phrase = this.rand_key_phrase();
+//        this.key_phrase = this.put_hello_world();
         this.put_amm_data();
       end
   endtask

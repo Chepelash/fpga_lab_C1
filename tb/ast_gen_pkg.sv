@@ -56,7 +56,7 @@ class ASTPGen;
   
   task insert_key_phrase();
     // TAKE STR FROM MAILBOX
-    bit [AMM_DWIDTH*AMM_DATA_LEN-1:0] t_reg;
+    regdata t_reg;
     int dw_ind;
     int byte_ind;
     
@@ -66,20 +66,20 @@ class ASTPGen;
       begin
         dw_ind = this.key_phrase_end_dw;
         byte_ind = this.key_phrase_end_byte;
-
-        for( int i = 0; i < STR_LEN; i++ )
+        for( int i = 0; i < AMM_DATA_LEN; i++ )
           begin
-            this.out_packet[dw_ind][BITS_PER_SYMB*byte_ind-1-:BITS_PER_SYMB] = t_reg[BITS_PER_SYMB*STR_LEN-1-BITS_PER_SYMB*i-:BITS_PER_SYMB];
-            if( byte_ind == 1 )
+            for( int j = 0; j < AMM_DWIDTH; j += BITS_PER_SYMB )
               begin
-                byte_ind = SYMB_IN_AST;
-                dw_ind += 1;
+                this.out_packet[dw_ind][BITS_PER_SYMB*byte_ind-1-:BITS_PER_SYMB] = t_reg[AMM_DATA_LEN-1-i][AMM_DWIDTH-1-j-:BITS_PER_SYMB];
+                if( byte_ind == 1 )
+                  begin
+                    byte_ind = SYMB_IN_AST;
+                    dw_ind += 1;
+                  end
+                else
+                  byte_ind -= 1;
               end
-            else
-              byte_ind -= 1;
-            
           end
-
       end
   endtask
   

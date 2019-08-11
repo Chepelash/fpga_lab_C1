@@ -23,8 +23,8 @@ class AstSrcDriver;
     bit [AST_DWIDTH-1:0] out_packet[$];
     bit [EMPTY_SIZE-1:0] empty;
     
-    this.gen_mbox.try_get( out_packet );
-    this.gen_mbox.try_get( empty );
+    this.gen_mbox.get( out_packet );
+    this.gen_mbox.get( empty );
     
     this.asrc.valid <= '1;
     for( int i = 0; i < out_packet.size(); i++ )

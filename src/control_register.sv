@@ -29,6 +29,7 @@ localparam BITS_IN_PAT = REG_WIDTH * PAT_WIDTH;
   0    - Enable ( 1 -- ON, 0 -- OFF )  
 */
 logic [REG_WIDTH-1:0] reg_map [REG_DEPTH-1:0] ;
+logic [REG_WIDTH-1:0] reg_data [PAT_WIDTH-1:0];
 
 // pattern assign to key symbols
 //generate
@@ -47,14 +48,18 @@ generate
     begin : pattern_assign
       for( i = 0; i < SYMB_IN_REG; i++ ) 
         begin : doing_patterns
-          assign pattern[j*REG_WIDTH+i*BIT_PER_SYMB+:BIT_PER_SYMB] = reg_map[REG_DEPTH-j-1][REG_WIDTH-(i+1)*BIT_PER_SYMB+:BIT_PER_SYMB];
+          assign pattern_o[j*REG_WIDTH+i*BIT_PER_SYMB+:BIT_PER_SYMB] = reg_map[REG_DEPTH-j-1][REG_WIDTH-(i+1)*BIT_PER_SYMB+:BIT_PER_SYMB];
         end
     end  
-  
-  for( m = 0; m < BITS_IN_PAT; m = m + BIT_PER_SYMB )
-    begin : pattern_reorder
-      assign pattern_o[m+:BIT_PER_SYMB] = pattern[BITS_IN_PAT-m-BIT_PER_SYMB+:BIT_PER_SYMB];
-    end
+//  j = 0;
+//  for( i = 0; i < PAT_SIZE; i += REG_WIDTH )
+//    begin : pattern_assign
+//      pattern[i+:REG_WIDTH] = 
+//    end
+//  for( m = 0; m < BITS_IN_PAT; m = m + BIT_PER_SYMB )
+//    begin : pattern_reorder
+//      assign pattern_o[m+:BIT_PER_SYMB] = pattern[BITS_IN_PAT-m-BIT_PER_SYMB+:BIT_PER_SYMB];
+//    end
 endgenerate
 
 // wrken = reg_map[0][0]
