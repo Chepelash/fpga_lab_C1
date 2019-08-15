@@ -42,8 +42,6 @@ logic                   eop_d2;
 logic [EMPTY_WIDTH-1:0] empty_d1;
 logic [EMPTY_WIDTH-1:0] empty_d2;
 
-// data enabling in ast pipeline
-logic d1_ena, d2_ena;
 
 // avalon mm module 
 control_register #(
@@ -65,24 +63,7 @@ assign src_if.valid = ( val_d2 & val_d1 & sink_if.valid ) |
                       ( val_d2 & val_d1 & eop_d1 ) |
                       ( val_d2 & eop_d2 );
 
-// 2nd pipeline stage write permission signal
-//assign d2_ena = (src_if.valid & src_if.ready ) | ( ~val_d2 );
-always_comb
-  begin
-    d2_ena = '0;
-    if( (src_if.valid & src_if.ready ) | ( ~val_d2 ) )
-      d2_ena = '1;
-  end
-
-// 1nd pipeline stage write permission signal
-//assign d1_ena = d2_ena | ( ~val_d1 );
-always_comb
-  begin
-    d1_ena = '0;
-    if( d2_ena | ( ~val_d1 ) )
-      d1_ena = '1;
-  end
-
+// pipelines
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
@@ -95,7 +76,7 @@ always_ff @( posedge clk_i )
       end
     else
       begin
-        if( src_if.ready )
+        if( src_if.ready && wrken )
           begin
             data_d1  <= sink_if.data;
             val_d1   <= sink_if.valid;
@@ -120,7 +101,7 @@ always_ff @( posedge clk_i )
       end
     else
       begin
-        if( src_if.ready )
+        if( src_if.ready && wrken )
           begin
             data_d2  <= data_d1;
             val_d2   <= val_d1;
@@ -134,9 +115,6 @@ always_ff @( posedge clk_i )
 
     
 // creating search area
-//assign substring[AST_DWIDTH-1:0]             = sink_if.data;
-//assign substring[AST_DWIDTH*2-1-:AST_DWIDTH] = data_d1;
-//assign substring[AST_DWIDTH*3-1-:AST_DWIDTH] = data_d2;
 assign substring = {data_d2, data_d1, sink_if.data};
 
 // searching for matches
