@@ -41,11 +41,11 @@ packet_classer #(
   .clk_i        ( clk_i         ),
   .srst_i       ( srst_i        ),
   
-  .amm_slave_if ( amm_master_if ),
+  .amm_if ( amm_master_if ),
   
-  .ast_src_if   ( ast_sink_if   ),
+  .src_if   ( ast_sink_if   ),
   
-  .ast_sink_if  ( ast_src_if    )
+  .sink_if  ( ast_src_if    )
 );
 
 

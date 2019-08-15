@@ -10,8 +10,37 @@ class AstSinkDriver;
     this.to_arb = to_arb;
     this.asink  = ast_sink_if;
     
-    this.asink.ready <= '1;
+//    this.asink.ready <= '1;
+    fork
+      this.random_ready();
+    join_none
   endfunction
+  
+  task random_ready();
+    int ticks;
+    bit not_ready;
+    forever
+      begin
+        not_ready = $urandom_range(1);
+        ticks = $urandom_range(100, 1);
+        if( not_ready )
+          begin
+            this.asink.ready <= '0;
+            do begin
+              @( posedge this.asink.clk_i );
+            end
+              while( --ticks );
+          end
+        else
+          begin
+            this.asink.ready <= '1;
+            do begin
+              @( posedge this.asink.clk_i );
+            end
+              while( --ticks );
+          end
+      end
+  endtask
   
   task read_data();
     bit [AST_DWIDTH-1:0] out_packet[$];
@@ -30,7 +59,7 @@ class AstSinkDriver;
       
     while( !done )
       begin : while_read
-        if( this.asink.valid )
+        if( this.asink.valid && this.asink.ready )
           begin
             if( ( cntr == 0 ) && !this.asink.startofpacket )
               begin

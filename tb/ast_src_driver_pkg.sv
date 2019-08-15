@@ -49,13 +49,17 @@ class AstSrcDriver;
             this.asrc.endofpacket   <= '0;
           end
         
-        if( !this.asrc.ready )
-          begin
-            while( !this.asrc.ready )
-              @( posedge this.asrc.clk_i );
-          end
-        else
+//        if( !this.asrc.ready )
+//          begin
+//            while( !this.asrc.ready )
+//              @( posedge this.asrc.clk_i );
+//          end
+//        else
+//          @( posedge this.asrc.clk_i );
+        do begin
           @( posedge this.asrc.clk_i );
+        end
+          while( !this.asrc.ready );
       end
     
     this.asrc.valid       <= '0;
