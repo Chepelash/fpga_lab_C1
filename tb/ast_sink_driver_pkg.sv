@@ -21,24 +21,8 @@ class AstSinkDriver;
     bit not_ready;
     forever
       begin
-        not_ready = $urandom_range(1);
-        ticks = $urandom_range(100, 1);
-        if( not_ready )
-          begin
-            this.asink.ready <= '0;
-            do begin
-              @( posedge this.asink.clk_i );
-            end
-              while( --ticks );
-          end
-        else
-          begin
-            this.asink.ready <= '1;
-            do begin
-              @( posedge this.asink.clk_i );
-            end
-              while( --ticks );
-          end
+        @( posedge this.asink.clk_i );
+          this.asink.ready <= $urandom_range(1);
       end
   endtask
   

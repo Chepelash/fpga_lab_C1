@@ -59,9 +59,11 @@ control_register #(
 
 
 // output data valid conditions
-assign src_if.valid = ( val_d2 & val_d1 & sink_if.valid ) |
-                      ( val_d2 & val_d1 & eop_d1 ) |
-                      ( val_d2 & eop_d2 );
+//assign src_if.valid = ( val_d2 & val_d1 & sink_if.valid ) |
+//                      ( val_d2 & val_d1 & eop_d1 ) |
+//                      ( val_d2 & eop_d2 );
+assign src_if.valid = val_d2;
+
 
 // pipelines
 always_ff @( posedge clk_i )
@@ -127,7 +129,7 @@ always_ff @( posedge clk_i )
       begin 
         if( |found )
           src_if.channel <= '1;
-        else if( eop_d2 )
+        else if( eop_d2 && src_if.ready )
           src_if.channel <= '0;
       end   
   end
