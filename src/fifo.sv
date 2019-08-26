@@ -2,21 +2,21 @@ module fifo #(
   parameter DWIDTH = 8,
   parameter AWIDTH = 4
 )(
-  input                     clk_i,
-  input                     srst_i,
+  input                        clk_i,
+  input                        srst_i,
   
-  input                     rd_i,
-  input                     wr_i,
-  input        [DWIDTH-1:0] wrdata_i,
+  input                        rd_i,
+  input                        wr_i,
+  input        [DWIDTH-1:0]    wrdata_i,
   // modification
   /*
     if shift > 1 - skip some values in read phase
   */
   input        [AWIDTH-1:0] shift_i,
   // end modification
-  output logic              empty_o,
-  output logic              full_o,
-  output logic [DWIDTH-1:0] rddata_o
+  output logic                 empty_o,
+  output logic                 full_o,
+  output logic [DWIDTH-1:0]    rddata_o
 );
 
 // write pointers
@@ -36,11 +36,16 @@ logic empty;
 logic empty_next;
 logic wren;
 
+logic [AWIDTH-1:0] shift;
+
+
 (* ramstyle = "M10K, no_rw_check" *) logic [DWIDTH-1:0] mem [0:2**AWIDTH-1];
 
 assign wren    = wr_i & ( ~full );
 assign full_o  = full;
 assign empty_o = empty;
+
+assign shift = shift_i;
 
 // reading mechanism
 assign rddata_o = mem[rdpntr];
@@ -75,7 +80,7 @@ always_comb
   begin
     //
     wrpntr_succ = wrpntr + 1'b1;
-    rdpntr_succ = rdpntr + shift_i;
+    rdpntr_succ = rdpntr + shift;
     //
     wrpntr_next = wrpntr;
     rdpntr_next = rdpntr;
