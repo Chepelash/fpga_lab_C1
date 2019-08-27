@@ -9,12 +9,10 @@ class AMMGen;
   
   regdata                 key_phrase;
   
-  function new( mailbox amm_mbox, mailbox amm_arb_mbox,
-                mailbox ast_gen_mbox );
+  function new( mailbox amm_mbox, mailbox amm_arb_mbox );
 
     this.amm_mbox     = amm_mbox;
     this.amm_arb_mbox = amm_arb_mbox;
-    this.ast_gen_mbox = ast_gen_mbox;
 
   endfunction
 
@@ -54,10 +52,10 @@ class AMMGen;
     this.amm_arb_mbox.put( this.key_phrase );
   endtask
   
-  task to_ast_gen(int num = 1);
+  task to_ast_gen( int num = 1, mailbox ast_gen_mbox );
     repeat( num )
       begin
-        this.ast_gen_mbox.put( this.key_phrase );
+        ast_gen_mbox.put( this.key_phrase );
       end
   endtask
   

@@ -17,8 +17,7 @@ class ASTPGen;
   int                  key_phrase_end_byte;
   int                  key_phrase_end_dw;
   
-  function new( mailbox ast_mbox, mailbox ast_arb_mbox, mailbox amm_gen );
-    this.amm_gen = amm_gen;
+  function new( mailbox ast_mbox, mailbox ast_arb_mbox );    
     this.ast_mbox = ast_mbox;
     this.ast_arb_mbox = ast_arb_mbox;
   endfunction
@@ -54,13 +53,13 @@ class ASTPGen;
       end
   endfunction
   
-  task insert_key_phrase();
+  task insert_key_phrase( mailbox amm_gen );
     // TAKE STR FROM MAILBOX
     regdata t_reg;
     int dw_ind;
     int byte_ind;
     
-    this.amm_gen.get( t_reg );
+    amm_gen.get( t_reg );
 
     if( this.is_put_key_phrase )
       begin
@@ -83,8 +82,8 @@ class ASTPGen;
       end
   endtask
   
-  task put_ast_data();
-    this.insert_key_phrase();
+  task put_ast_data( mailbox amm_gen );
+    this.insert_key_phrase( amm_gen );
     this.ast_mbox.put( this.out_packet );
     this.ast_mbox.put( this.empty );
     
@@ -93,11 +92,11 @@ class ASTPGen;
     this.ast_arb_mbox.put( this.is_put_key_phrase );
   endtask
   
-  task run( int num = 1 );
+  task run( int num = 1, mailbox amm_gen );
     repeat( num )
       begin
         this.pro_randomize();
-        this.put_ast_data();
+        this.put_ast_data( amm_gen );
       end
   endtask
   

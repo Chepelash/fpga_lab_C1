@@ -78,8 +78,8 @@ endtask
 task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast, AMM_Driver amm_driver, int num = 1 );
   
   amm_driver.wrk_enable( 1 );
-  amm_gen.to_ast_gen( num );
-  gen.run( num );
+  amm_gen.to_ast_gen( num, amm_gen_mbox );
+  gen.run( num, amm_gen_mbox );
   ast.run( num );
 endtask
 
@@ -119,12 +119,12 @@ initial
     
     $display("Starting testbench!");
 
-    ast_gen  = new( gen2ast_driver, gen2ast_arb, amm_gen_mbox );
+    ast_gen  = new( gen2ast_driver, gen2ast_arb );
     ast_src  = new( gen2ast_driver, ast_src_if );
     ast_sink = new( asink2arb, ast_sink_if );
     ast_arb  = new( ast_src, ast_sink, gen2ast_arb, asink2arb );
 
-    amm_gen     = new( gen2amm_driver, gen2amm_arb, amm_gen_mbox );
+    amm_gen     = new( gen2amm_driver, gen2amm_arb );
     amm_driver  = new( amm_master_if, gen2amm_driver, amm_dr2arb );
     amm_arbiter = new( gen2amm_arb, amm_dr2arb, amm_driver );
     
