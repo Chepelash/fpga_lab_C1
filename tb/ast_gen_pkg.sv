@@ -83,7 +83,9 @@ class ASTPGen;
   endtask
   
   task put_ast_data( mailbox amm_gen );
-    this.insert_key_phrase( amm_gen );
+    if( amm_gen != null )
+      this.insert_key_phrase( amm_gen );
+      
     this.ast_mbox.put( this.out_packet );
     this.ast_mbox.put( this.empty );
     
@@ -92,7 +94,7 @@ class ASTPGen;
     this.ast_arb_mbox.put( this.is_put_key_phrase );
   endtask
   
-  task run( int num = 1, mailbox amm_gen );
+  task run( int num = 1, mailbox amm_gen = null );
     repeat( num )
       begin
         this.pro_randomize();
