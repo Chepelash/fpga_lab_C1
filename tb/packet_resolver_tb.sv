@@ -77,7 +77,7 @@ mailbox snk2arb = new;
 
 task automatic main_test( ASTPGen gen, AstArbiter arb, int num = 1 );
   gen.run( num );
-  arb.run( num );
+  arb.run( num, 1 );
 endtask
 
 initial
@@ -90,12 +90,12 @@ initial
     apply_rst();
     $display("Starting testbench!");
 
-    ast_gen = new( gen2src, gen2arb );
+    ast_gen = new( gen2src, gen2arb, 1 );
     ast_src = new( gen2src, ast_src_if );
     ast_snk = new( snk2arb, ast_sink_if );
     ast_arb = new( ast_src, ast_snk, gen2arb, snk2arb );
     
-    main_test( ast_gen, ast_arb );
+    main_test( ast_gen, ast_arb, 10 );
     
     $display("Everything is OK!");
     $stop();

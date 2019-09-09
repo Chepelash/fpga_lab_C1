@@ -20,7 +20,7 @@ class AstArbiter;
     
   endfunction
   
-  task check_data();
+  task automatic check_data( bit only_ch );
     bit [AST_DWIDTH-1:0] out_packet_gen[$];
     bit [EMPTY_SIZE-1:0] empty_gen;
     bit                  channel_gen;
@@ -32,12 +32,15 @@ class AstArbiter;
     this.from_gen.get( out_packet_gen );
     this.from_gen.get( empty_gen );
     this.from_gen.get( channel_gen );
-
+    
+    if( only_ch && channel_gen == 0 )
+      disable check_data;
+      
     fork
       this.ast_src.send_data();
       this.ast_sink.read_data();
     join_none
-
+    
     this.from_sink.get( out_packet_sink );
     this.from_sink.get( empty_sink );
     this.from_sink.get( channel_sink );
@@ -61,11 +64,11 @@ class AstArbiter;
     $display("AST_Arbiter.check_data - read successfully");
   endtask
   
-  task run( int num = 1 );
+  task automatic run( int num = 1, bit only_ch = 0 );
     repeat( num )
-      this.check_data();
+      this.check_data( only_ch );
   endtask
-  
+      
 endclass
 
 endpackage

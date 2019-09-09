@@ -1,6 +1,7 @@
 package ast_gen_pkg;
 
 import tb_parameters_pkg::*;
+import amm_gen_pkg::*;
 
 class ASTPGen;
   
@@ -16,10 +17,12 @@ class ASTPGen;
   int                  key_phrase_end_idx;
   int                  key_phrase_end_byte;
   int                  key_phrase_end_dw;
+  bit                  rand_ch;
   
-  function new( mailbox ast_mbox, mailbox ast_arb_mbox );    
+  function new( mailbox ast_mbox, mailbox ast_arb_mbox, bit rand_ch = 0 );    
     this.ast_mbox = ast_mbox;
     this.ast_arb_mbox = ast_arb_mbox;
+    this.rand_ch = rand_ch;
   endfunction
   
   function void pro_randomize();
@@ -53,7 +56,7 @@ class ASTPGen;
       end
   endfunction
   
-  task insert_key_phrase( mailbox amm_gen );
+  task automatic insert_key_phrase( mailbox amm_gen );
     // TAKE STR FROM MAILBOX
     regdata t_reg;
     int dw_ind;
@@ -82,19 +85,23 @@ class ASTPGen;
       end
   endtask
   
-  task put_ast_data( mailbox amm_gen );
+  task automatic put_ast_data( mailbox amm_gen );
     if( amm_gen != null )
       this.insert_key_phrase( amm_gen );
       
     this.ast_mbox.put( this.out_packet );
     this.ast_mbox.put( this.empty );
-    
+    if( this.rand_ch && $urandom_range(1) )
+      this.ast_mbox.put( $urandom_range( this.out_packet.size() - 1 ) );
+    else
+      this.ast_mbox.put( -1 );
+      
     this.ast_arb_mbox.put( this.out_packet );
     this.ast_arb_mbox.put( this.empty );
     this.ast_arb_mbox.put( this.is_put_key_phrase );
   endtask
   
-  task run( int num = 1, mailbox amm_gen = null );
+  task automatic run( int num = 1, mailbox amm_gen = null );
     repeat( num )
       begin
         this.pro_randomize();

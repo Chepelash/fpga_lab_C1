@@ -17,16 +17,20 @@ class AstSrcDriver;
     this.asrc.startofpacket <= '0; 
     this.asrc.endofpacket   <= '0; 
     this.asrc.empty         <= '0;
+        
   endfunction
   
   task send_data();
     bit [AST_DWIDTH-1:0] out_packet[$];
     bit [EMPTY_SIZE-1:0] empty;
+    int ch_ind;
     
     this.gen_mbox.get( out_packet );
     this.gen_mbox.get( empty );
+    this.gen_mbox.get( ch_ind );
     
     this.asrc.valid <= '1;
+    $display("Size = %d", out_packet.size());
     for( int i = 0; i < out_packet.size(); i++ )
       begin
         
@@ -49,13 +53,9 @@ class AstSrcDriver;
             this.asrc.endofpacket   <= '0;
           end
         
-//        if( !this.asrc.ready )
-//          begin
-//            while( !this.asrc.ready )
-//              @( posedge this.asrc.clk_i );
-//          end
-//        else
-//          @( posedge this.asrc.clk_i );
+        if( i == ch_ind )
+          this.asrc.channel <= '1;
+          
         do begin
           @( posedge this.asrc.clk_i );
         end
@@ -64,6 +64,7 @@ class AstSrcDriver;
     
     this.asrc.valid       <= '0;
     this.asrc.endofpacket <= '0;
+    this.asrc.channel     <= '0;
   endtask
   
 endclass
