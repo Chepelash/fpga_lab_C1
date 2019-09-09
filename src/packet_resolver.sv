@@ -25,262 +25,260 @@ localparam DFIFO_DWIDTH   = AST_DWIDTH + 2 + EMPTY_WIDTH;
 localparam DFIFO_AWIDTH   = 8;
 // 1 for channel + DFIFO_AWIDTH for mem offset
 localparam SFIFO_DWIDTH   = CHANNEL_WIDTH + DFIFO_AWIDTH;
-localparam SFIFO_AWIDTH   = $clog2(  2**DFIFO_AWIDTH / MIN_PCKT_SIZE );
-///
-localparam EOP_IDX   = DFIFO_DWIDTH - 1;
-localparam SOP_IDX   = DFIFO_DWIDTH - 2;
+// sfifo should have entries number to store max values of min sized packets
+localparam SFIFO_AWIDTH   = ( 2**DFIFO_AWIDTH ) / MIN_PCKT_SIZE;
+// fifo data indexes
+localparam SOP_IDX   = DFIFO_DWIDTH - 1;
+localparam EOP_IDX   = DFIFO_DWIDTH - 2;
 localparam EMPTY_IDX = AST_DWIDTH;
 localparam DATA_IDX  = 0;
-
+// stat fifo indexes
 localparam CHNL_IDX = SFIFO_DWIDTH - CHANNEL_WIDTH;
 localparam SHFT_IDX = 0;
 
 // FSM states
 
-enum logic [1:0] { IDLE_S,
+enum logic [2:0] { IDLE_S,
                    RD_S,
                    DCD_S,
+                   WAIT_S,
                    TRNSM_S } state, next_state;
 
-// data_fifo signals
-logic                       rd_data;
-logic                       wr_data;
-logic [DFIFO_DWIDTH-1:0]    packet_data;
-logic [DFIFO_DWIDTH-1:0]    df_data;
-logic [DFIFO_AWIDTH-1:0] df_shift;
-logic                       df_empty;
-logic                       df_full;
-logic [DFIFO_AWIDTH-1:0] shift;
+// data fifo signals
+// input
+logic [DFIFO_DWIDTH-1:0] packet_data;
+logic                    wr_df;
+logic                    rd_df;
+logic [DFIFO_AWIDTH-1:0] shift_df;
+// output
+logic [DFIFO_DWIDTH-1:0] q_df;
+logic                    empty_df;
+logic                    full_df;
 
-// stat_fifo signals
-logic                    rd_stat;
-logic                    wr_stat;
+// stat fifo signals
+// input
 logic [SFIFO_DWIDTH-1:0] packet_stat;
-logic [SFIFO_DWIDTH-1:0] sf_data;
-logic                    sf_empty;
-logic                    sf_full;
+logic                    wr_sf;
+logic                    rd_sf;
+logic [DFIFO_AWIDTH-1:0] shift_sf;
+// output
+logic [SFIFO_DWIDTH-1:0] q_sf;
+logic                    empty_sf;
+logic                    full_sf;
 
-// parsed dfifo signals
-logic                   val;
-logic                   eop;
-logic                   sop;
-logic [EMPTY_WIDTH-1:0] empty;
-logic [AST_DWIDTH-1:0]  data;
-
-// parsed sfifo signals
-logic [DFIFO_AWIDTH-1:0] pcntr;
-logic                       channel;
-
-// structures
-assign packet_data = {sink_if.startofpacket, sink_if.endofpacket,
-                      sink_if.empty, sink_if.data};
-assign eop   = df_data[EOP_IDX];
-assign sop   = df_data[SOP_IDX];
-assign empty = df_data[EMPTY_IDX+:EMPTY_WIDTH];
-assign data  = df_data[DATA_IDX+:AST_DWIDTH];
-
-assign packet_stat = {sink_if.channel, pcntr};
-assign shift       = sf_data[SHFT_IDX+:DFIFO_AWIDTH];
-assign channel     = sf_data[CHNL_IDX+:CHANNEL_WIDTH];
-
-// sink ready
-assign sink_if.ready = ~df_full;
-
-// FSM 
-
-/*
-  HOW SHIFT WORKS
-  ---------------
-  e.g. read pointer in dfifo at 0. We have read from sfifo 'b1 ( channel ) 10000, so 
-  shift should be 1 for transmittiong every dword from dfifo.
-  When data chunk from sfifo 'b0 ( channel ) 01010 this means that 1010 dwords in dfifo 
-  must be droped ( mustn't be transmitted ), so read pointer 
-  in dfifo should shift by 1010.
-*/
-
+// fifos
+fifo       #(
+  .DWIDTH   ( SFIFO_DWIDTH ),
+  .AWIDTH   ( SFIFO_AWIDTH ),
+  .SWIDTH   ( 1'b1         )
+) st_fifo   (
+  .clk_i    ( clk_i        ),
+  .srst_i   ( srst_i       ),
+  
+  .rd_i     ( rd_sf        ),
+  .wr_i     ( wr_sf        ),
+  .wrdata_i ( packet_stat  ),
+  
+  .shift_i  ( 1'b1         ),
+  
+  .empty_o  ( empty_sf     ),
+  .full_o   ( full_sf      ),
+  .rddata_o ( q_sf         )
+  
+);
 
 fifo #(
   .DWIDTH   ( DFIFO_DWIDTH ),
-  .AWIDTH   ( DFIFO_AWIDTH )
-) data_fifo (
+  .AWIDTH   ( DFIFO_AWIDTH ),
+  .SWIDTH   ( DFIFO_AWIDTH )
+) dt_fifo   (
   .clk_i    ( clk_i        ),
   .srst_i   ( srst_i       ),
   
-  .rd_i     ( rd_data      ),
-  .wr_i     ( wr_data      ),
+  .rd_i     ( rd_df        ),
+  .wr_i     ( wr_df        ),
   .wrdata_i ( packet_data  ),
-  .shift_i  ( df_shift     ),
   
-  .empty_o  ( df_empty     ),
-  .full_o   ( df_full      ),
-  .rddata_o ( df_data      )  
+  .shift_i  ( shift_df     ),
+  
+  .empty_o  ( empty_df     ),
+  .full_o   ( full_df      ),
+  .rddata_o ( q_df         ) 
 );
 
-fifo #(
-  .DWIDTH   ( SFIFO_DWIDTH ),
-  .AWIDTH   ( SFIFO_AWIDTH )
-) stat_fifo (
-  .clk_i    ( clk_i        ),
-  .srst_i   ( srst_i       ),
-  
-  .rd_i     ( rd_stat      ),
-  .wr_i     ( wr_stat      ),
-  .wrdata_i ( packet_stat  ),
-  // stat fifo should read every value
-  .shift_i  ( '1           ),
-  
-  .empty_o  ( sf_empty     ),
-  .full_o   ( sf_full      ),
-  .rddata_o ( sf_data      )
-);
+// parsing fifos out packets
+// data fifo
+logic                    sop_df;
+logic                    eop_df;
+logic [EMPTY_WIDTH-1:0]  emptyast_df;
+logic [AST_DWIDTH-1:0]   data_df;
+// stat fifo
+logic                    drop;
+logic [DFIFO_AWIDTH-1:0] step_sf;
+//
+logic [DFIFO_AWIDTH-1:0] pcntr;
+// output logic
+logic                   sop_out;
+logic                   eop_out;
+logic                   valid_out;
+logic [AST_DWIDTH-1:0]  data_out;
+logic [EMPTY_WIDTH-1:0] empty_out;
+
+
+// 
+assign packet_stat = { sink_if.channel, pcntr };
+assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,
+                       sink_if.empty, sink_if.data };
+
+////////////////////////////
+// data fifo
+assign sop_df      = q_df[SOP_IDX];
+assign eop_df      = q_df[EOP_IDX];
+assign emptyast_df = q_df[EMPTY_IDX+:EMPTY_WIDTH];
+assign data_df     = q_df[DATA_IDX+:AST_DWIDTH];
+// stat fifo
+assign drop    = ~q_sf[CHNL_IDX+:CHANNEL_WIDTH];
+assign step_sf = q_sf[SHFT_IDX+:DFIFO_AWIDTH];
 
 // FSM
 always_ff @( posedge clk_i )
-  if( srst_i )
-    state <= IDLE_S;
-  else
-    state <= next_state;
+  begin
+    if( srst_i )
+      state <= IDLE_S;
+    else
+      state <= next_state;
+  end
 
-/*
-{ IDLE_S,
-  RD_S,
-  DCD_S,
-  TRNSM_S } state, next_state;
-*/
 always_comb
   begin
     next_state = state;
+    
     case( state )
       IDLE_S: begin
-        if( !sf_empty )
+        if( ~empty_sf )
           next_state = RD_S;
       end
       
       RD_S: begin
+        next_state = WAIT_S;
+      end
+      
+      WAIT_S: begin
         next_state = DCD_S;
       end
       
       DCD_S: begin
-        if( ( !channel ) && !sf_empty )
-          next_state = RD_S;
-        else if( channel )
+        if( !drop )
           next_state = TRNSM_S;
+        else if( drop && ~empty_sf )
+          next_state = RD_S;
         else
           next_state = IDLE_S;
       end
-      
       TRNSM_S: begin
-        if( src_if.ready ) 
+        if( eop_df )
           begin
-            if( eop && ( !sf_empty ) )
+            if( ~empty_sf )
               next_state = RD_S;
-            else if( eop && sf_empty )
-              next_state = IDLE_S;  
-          end              
+            else
+              next_state = IDLE_S;
+          end
       end
     endcase
+    
   end
-// sfifo control
-//sfifo reading
+// sfifo signals
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
       begin
-        rd_stat <= '0;
+        rd_sf <= '0;
       end
     else
       begin
-        case( state )
-          IDLE_S: begin
-            rd_stat <= '0;
-          end
-          
-          RD_S: begin
-            rd_stat <= '1;
-          end
-          
-          DCD_S: begin
-            rd_stat <= '0;
-          end
-          
-          TRNSM_S: begin
-            rd_stat <= '0;
-          end
-        endcase
+        if( state == RD_S )
+          rd_sf <= '1;
+        else
+          rd_sf <= '0;
       end
   end
-// sfifo writing
-assign wr_stat = sink_if.ready & sink_if.endofpacket;
+//dfifo signals
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
       begin
-        pcntr <= '0;
+        rd_df       <= '0;
+        shift_df    <= '0;
+        shift_df[0] <= '1;
       end
+      
     else
       begin
-        if( sink_if.ready && sink_if.valid && ( !sink_if.endofpacket ) )
-          pcntr += 1'b1;
-        else if( sink_if.ready && sink_if.endofpacket )
-          pcntr <= '0;
-      end
-  end
-
-//dfifo control
-//dfifo reading
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      begin
-        rd_data  <= '0;
-        df_shift <= 1'b1;
-      end
-    else
-      begin
-        case( state )
-          IDLE_S: begin
-            df_shift <= 1'b1;
-            rd_data  <= '0;
-            val <= '0;
-          end
-          
-          RD_S: begin
-            val <= '0;
-            df_shift <= 1'b1;
-            rd_data  <= '0;
-          end
-          
-          DCD_S: begin
-            val <= '0;
-            rd_data <= '1;
-            if( !channel )              
-              df_shift <= shift;              
+        if( state == DCD_S )
+          begin
+            rd_df <= '1;
+            if( drop )
+              shift_df <= step_sf;
             else
-              df_shift <= 1'b1;
+              begin
+                shift_df    <= '0;
+                shift_df[0] <= 1'b1;
+              end
+              
           end
           
-          TRNSM_S: begin
-            if( eop )
-              rd_data <= '0;
-            else if( src_if.ready )
-              rd_data <= '1;
+        else if( state == TRNSM_S )
+          begin
+            shift_df    <= '0;
+            shift_df[0] <= 1'b1;
+            if( eop_df )
+              rd_df <= '0;
             else
-              rd_data <= '0;
-            val <= '1;
-            df_shift  <= 1'b1;
+              rd_df <= '1;
           end
-        endcase
+        else
+          begin
+            rd_df       <= '0;
+            shift_df    <= '0;
+            shift_df[0] <= 1'b1;
+          end
       end
   end
-//dfifo writing
-assign wr_data = sink_if.ready & sink_if.valid;
+  
+// output valid signal
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      src_if.valid <= '0;
+    else
+      begin
+        if( state == TRNSM_S )
+          src_if.valid <= '1;
+        else
+          src_if.valid <= '0;
+      end
+  end
+// pcntr
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      pcntr <= '0 + 1'b1;
+    else
+      begin
+        if( sink_if.endofpacket )
+          pcntr <= '0 + 1'b1;
+        else if( sink_if.valid )
+          pcntr += 1'b1;        
+      end
+  end
 
-// TRANSMITTION
-assign src_if.startofpacket = sop;
-assign src_if.endofpacket   = eop;
-assign src_if.data          = data;
-assign src_if.empty         = empty;
-assign src_if.valid         = val;
-assign src_if.channel       = '0;
+assign src_if.startofpacket = sop_df;
+assign src_if.endofpacket = eop_df;
+assign src_if.data = data_df;
+assign src_if.empty = emptyast_df;
+assign src_if.channel = '0;
+assign wr_sf = sink_if.endofpacket;
+assign wr_df = sink_if.valid;
 
+assign sink_if.ready = ~full_df;
 endmodule
