@@ -76,8 +76,8 @@ mailbox gen2arb = new;
 mailbox snk2arb = new;
 
 task automatic main_test( ASTPGen gen, AstArbiter arb, int num = 1 );
-  gen.run( num );
-  arb.run( num, 1 );
+    gen.run( num );
+    arb.run( num, 1 );
 endtask
 
 initial

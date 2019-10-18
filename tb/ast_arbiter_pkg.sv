@@ -20,7 +20,69 @@ class AstArbiter;
     
   endfunction
   
-  task automatic check_data( bit only_ch );
+//  task automatic check_data( bit only_ch );
+//    bit [AST_DWIDTH-1:0] out_packet_gen[$];
+//    bit [EMPTY_SIZE-1:0] empty_gen;
+//    bit                  channel_gen;
+//    
+//    bit [AST_DWIDTH-1:0] out_packet_sink[$];
+//    bit [EMPTY_SIZE-1:0] empty_sink;
+//    bit                  channel_sink;
+//    
+//    this.from_gen.get( out_packet_gen );
+//    this.from_gen.get( empty_gen );
+//    this.from_gen.get( channel_gen );
+//
+//// НАДО РАЗДЕЛИТЬ ЛОГИКУ ДЛЯ ДВУХ РАЗНЫХ МОДУЛЕЙ   
+//    
+//    if( only_ch == 0 ) 
+//    // for packet classer
+//      begin
+//        fork
+//          this.ast_src.send_data();
+//          this.ast_sink.read_data();
+//        join_none
+//
+//       
+//        this.from_sink.get( out_packet_sink );
+//        this.from_sink.get( empty_sink );
+//        this.from_sink.get( channel_sink );
+//        
+//        if( out_packet_sink != out_packet_gen )
+//          begin
+//            $display("AstArbiter.check_data - packet mismatch");
+//            $stop();
+//          end
+//        if( empty_sink != empty_gen )
+//          begin
+//            $display("AstArbiter.check_data - empty mismatch");
+//            $stop();
+//          end
+//        if( channel_sink != channel_gen )
+//          begin
+//            $display("AstArbiter.check_data - channel mismatch");
+//            $display("Channel read = %d; channel generated = %d", channel_sink, channel_gen);
+//            $stop();
+//          end
+//        $display("AST_Arbiter.check_data - read successfully");
+//      end
+//    else
+//    // for packet resolver
+//      begin
+//        this.ast_src.send_data();
+//        $stop();
+////        if(  )
+//      end
+//    
+//  endtask
+//  
+//  task automatic run( int num = 1, bit only_ch = 0 );
+//    repeat( num )
+//      this.check_data( only_ch );
+//  endtask
+      
+    task automatic compare_data( int num );
+    
     bit [AST_DWIDTH-1:0] out_packet_gen[$];
     bit [EMPTY_SIZE-1:0] empty_gen;
     bit                  channel_gen;
@@ -29,46 +91,66 @@ class AstArbiter;
     bit [EMPTY_SIZE-1:0] empty_sink;
     bit                  channel_sink;
     
-    this.from_gen.get( out_packet_gen );
-    this.from_gen.get( empty_gen );
-    this.from_gen.get( channel_gen );
-    
-    if( only_ch && channel_gen == 0 )
-      disable check_data;
-      
-    fork
-      this.ast_src.send_data();
-      this.ast_sink.read_data();
-    join_none
-    
-    this.from_sink.get( out_packet_sink );
-    this.from_sink.get( empty_sink );
-    this.from_sink.get( channel_sink );
-    
-    if( out_packet_sink != out_packet_gen )
+    repeat( num )
       begin
-        $display("AstArbiter.check_data - packet mismatch");
-        $stop();
-      end
-    if( empty_sink != empty_gen )
+        this.from_gen.get( out_packet_gen );
+        this.from_gen.get( empty_gen );
+        this.from_gen.get( channel_gen );
+        
+        this.from_sink.get( out_packet_sink );
+        this.from_sink.get( empty_sink );
+        this.from_sink.get( channel_sink );
+        
+        if( out_packet_sink != out_packet_gen )
+          begin
+            $display("AstArbiter.check_data - packet mismatch");
+            $stop();
+          end
+        if( empty_sink != empty_gen )
+          begin
+            $display("AstArbiter.check_data - empty mismatch");
+            $stop();
+          end
+        if( channel_sink != channel_gen )
+          begin
+            $display("AstArbiter.check_data - channel mismatch");
+            $display("Channel read = %d; channel generated = %d", channel_sink, channel_gen);
+            $stop();
+          end
+        $display("AST_Arbiter.check_data - read successfully");
+        
+      end   
+    
+    endtask
+    
+    task automatic check_data( int num, bit only_ch );
+    
+
+// НАДО РАЗДЕЛИТЬ ЛОГИКУ ДЛЯ ДВУХ РАЗНЫХ МОДУЛЕЙ   
+    
+    if( only_ch == 0 ) 
+    // for packet classer
       begin
-        $display("AstArbiter.check_data - empty mismatch");
-        $stop();
+        fork
+          this.ast_src.send_data();
+          this.ast_sink.read_data();
+          this.compare_data( num );
+        join_any       
       end
-    if( channel_sink != channel_gen )
+    else
+    // for packet resolver
       begin
-        $display("AstArbiter.check_data - channel mismatch");
-        $display("Channel read = %d; channel generated = %d", channel_sink, channel_gen);
+        this.ast_src.send_data();
         $stop();
+//        if(  )
       end
-    $display("AST_Arbiter.check_data - read successfully");
+    
   endtask
   
   task automatic run( int num = 1, bit only_ch = 0 );
-    repeat( num )
-      this.check_data( only_ch );
+    this.check_data( num, only_ch );
   endtask
-      
+  
 endclass
 
 endpackage

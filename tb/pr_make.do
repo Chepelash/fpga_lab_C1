@@ -38,5 +38,8 @@ add wave /packet_resolver_tb/ast_sink_if.channel
 
 
 add wave /packet_resolver_tb/DUT/*
+add wave /packet_resolver_tb/DUT/dt_fifo/*
+
+
 run -all
 
