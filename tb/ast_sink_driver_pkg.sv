@@ -26,52 +26,56 @@ class AstSinkDriver;
       end
   endtask
   
-  task read_data();
+  task read_data( int num );
     bit [AST_DWIDTH-1:0] out_packet[$];
     bit [EMPTY_SIZE-1:0] empty;
     bit                  channel;
     int                  cntr;
     bit                  done;
     
-    cntr = 0;
-    done = 0;
+    repeat( num ) begin
+      cntr = 0;
+      done = 0;
+      channel = 0;
+      empty = '0;
+      out_packet = {};
 
-    do begin
-        @( posedge this.asink.clk_i );  
-    end
-      while( !this.asink.valid );
-      
-    while( !done )
-      begin : while_read
-        if( this.asink.valid && this.asink.ready )
-          begin
-            if( ( cntr == 0 ) && !this.asink.startofpacket )
-              begin
-                $display("AstSinkDriver.read_data - no startofpacket signal");
-                $stop();
-              end
-            cntr += 1;
-            out_packet.push_back( this.asink.data );
-            if( this.asink.endofpacket )
-              begin
-                done    = 1;
-                empty   = this.asink.empty;
-                channel = this.asink.channel;
-              end
-            else
+      do begin
+          @( posedge this.asink.clk_i );  
+      end
+        while( !this.asink.valid );
+        
+      while( !done )
+        begin : while_read
+          if( this.asink.valid && this.asink.ready )
+            begin
+              if( ( cntr == 0 ) && !this.asink.startofpacket )
+                begin
+                  $display("AstSinkDriver.read_data - no startofpacket signal");
+                  $stop();
+                end
+              cntr += 1;
+              out_packet.push_back( this.asink.data );
+              if( this.asink.endofpacket )
+                begin
+                  done    = 1;
+                  empty   = this.asink.empty;
+                  channel = this.asink.channel;
+                end
+              else
+                @( posedge this.asink.clk_i );
+
+            end
+          else
+            begin : not_valid
               @( posedge this.asink.clk_i );
-
-          end
-        else
-          begin : not_valid
-            @( posedge this.asink.clk_i );
-          end   : not_valid
-      end   : while_read
-    
-    this.to_arb.put( out_packet );
-    this.to_arb.put( empty );
-    this.to_arb.put( channel );
-    
+            end   : not_valid
+        end   : while_read
+      
+      this.to_arb.put( out_packet );
+      this.to_arb.put( empty );
+      this.to_arb.put( channel );
+    end
   endtask
   
 endclass

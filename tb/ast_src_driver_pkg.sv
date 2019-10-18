@@ -20,51 +20,53 @@ class AstSrcDriver;
         
   endfunction
   
-  task send_data();
+  task send_data( int num );
     bit [AST_DWIDTH-1:0] out_packet[$];
     bit [EMPTY_SIZE-1:0] empty;
     int ch_ind;
     
-    this.gen_mbox.get( out_packet );
-    this.gen_mbox.get( empty );
-    this.gen_mbox.get( ch_ind );
-    
-    this.asrc.valid <= '1;
-    $display("Size = %d", out_packet.size());
-    for( int i = 0; i < out_packet.size(); i++ )
-      begin
-        
-        this.asrc.data <= out_packet[i];
-        
-        if( i == 0 )
-          begin
-            this.asrc.empty         <= '0;
-            this.asrc.endofpacket   <= '0;
-            this.asrc.startofpacket <= '1;
-          end
-        else if( i == ( out_packet.size() - 1 ) )
-          begin
-            this.asrc.empty <= empty;
-            this.asrc.endofpacket <= '1;            
-          end
-        else
-          begin
-            this.asrc.startofpacket <= '0;
-            this.asrc.endofpacket   <= '0;
-          end
-        
-        if( i == ch_ind )
-          this.asrc.channel <= '1;
+    repeat( num ) begin
+      this.gen_mbox.get( out_packet );
+      this.gen_mbox.get( empty );
+      this.gen_mbox.get( ch_ind );
+      
+      this.asrc.valid <= '1;
+      $display("Size = %d", out_packet.size());
+      for( int i = 0; i < out_packet.size(); i++ )
+        begin
           
-        do begin
-          @( posedge this.asrc.clk_i );
+          this.asrc.data <= out_packet[i];
+          
+          if( i == 0 )
+            begin
+              this.asrc.empty         <= '0;
+              this.asrc.endofpacket   <= '0;
+              this.asrc.startofpacket <= '1;
+            end
+          else if( i == ( out_packet.size() - 1 ) )
+            begin
+              this.asrc.empty <= empty;
+              this.asrc.endofpacket <= '1;            
+            end
+          else
+            begin
+              this.asrc.startofpacket <= '0;
+              this.asrc.endofpacket   <= '0;
+            end
+          
+          if( i == ch_ind )
+            this.asrc.channel <= '1;
+            
+          do begin
+            @( posedge this.asrc.clk_i );
+          end
+            while( !this.asrc.ready );
         end
-          while( !this.asrc.ready );
-      end
-    
-    this.asrc.valid       <= '0;
-    this.asrc.endofpacket <= '0;
-    this.asrc.channel     <= '0;
+      
+      this.asrc.valid       <= '0;
+      this.asrc.endofpacket <= '0;
+      this.asrc.channel     <= '0;
+    end
   endtask
   
 endclass
