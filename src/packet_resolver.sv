@@ -21,12 +21,15 @@ localparam MIN_PCKT_SIZE = 8;
 localparam MAX_PCKT_SIZE = 190;
 // + 2 for sop, eop + EMPTY_WIDTH for empty
 localparam DFIFO_DWIDTH   = AST_DWIDTH + 2 + EMPTY_WIDTH;
-// 256 dwords
+// 64 dwords
 localparam DFIFO_AWIDTH   = 8;
 // 1 for channel + DFIFO_AWIDTH for mem offset
 localparam SFIFO_DWIDTH   = CHANNEL_WIDTH + DFIFO_AWIDTH;
 // sfifo should have entries number to store max values of min sized packets
-localparam SFIFO_AWIDTH   = ( 2**DFIFO_AWIDTH ) / MIN_PCKT_SIZE;
+//localparam SFIFO_AWIDTH   = 2**DFIFO_AWIDTH / MIN_PCKT_SIZE;
+// value above is too large ( 2 ** 8 / 8 = 32 )
+localparam SFIFO_AWIDTH   = 16;
+
 // fifo data indexes
 localparam SOP_IDX   = DFIFO_DWIDTH - 1;
 localparam EOP_IDX   = DFIFO_DWIDTH - 2;
@@ -70,7 +73,7 @@ logic                    full_sf;
 fifo       #(
   .DWIDTH   ( SFIFO_DWIDTH ),
   .AWIDTH   ( SFIFO_AWIDTH ),
-  .SWIDTH   ( 1'b1         )
+  .SWIDTH   ( 1            )
 ) st_fifo   (
   .clk_i    ( clk_i        ),
   .srst_i   ( srst_i       ),
@@ -86,6 +89,7 @@ fifo       #(
   .rddata_o ( q_sf         )
   
 );
+
 
 fifo #(
   .DWIDTH   ( DFIFO_DWIDTH ),
@@ -118,11 +122,11 @@ logic [DFIFO_AWIDTH-1:0] step_sf;
 //
 logic [DFIFO_AWIDTH-1:0] pcntr;
 // output logic
-logic                   sop_out;
-logic                   eop_out;
-logic                   valid_out;
-logic [AST_DWIDTH-1:0]  data_out;
-logic [EMPTY_WIDTH-1:0] empty_out;
+logic                    sop_out;
+logic                    eop_out;
+logic                    valid_out;
+logic [AST_DWIDTH-1:0]   data_out;
+logic [EMPTY_WIDTH-1:0]  empty_out;
 
 
 // 
