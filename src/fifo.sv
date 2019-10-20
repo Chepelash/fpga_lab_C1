@@ -40,13 +40,16 @@ logic wren;
 logic [AWIDTH-1:0] shift;
 
 
-(* ramstyle = "M10K, no_rw_check" *) logic [DWIDTH-1:0] mem [0:2**AWIDTH-1];
+(* ramstyle = "M10K, no_rw_check" *) logic [DWIDTH-1:0] mem [2**AWIDTH-1:0];
 
 assign wren    = wr_i & ( ~full );
 assign full_o  = full;
 assign empty_o = empty;
 
-assign shift = shift_i;
+always_comb
+  begin
+    shift = '0 + shift_i;
+  end
 
 // reading mechanism
 always_ff @( posedge clk_i )
