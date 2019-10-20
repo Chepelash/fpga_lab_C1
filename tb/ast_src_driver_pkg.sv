@@ -31,7 +31,7 @@ class AstSrcDriver;
       this.gen_mbox.get( ch_ind );
       
       this.asrc.valid <= '1;
-      $display("Size = %d", out_packet.size());
+      
       for( int i = 0; i < out_packet.size(); i++ )
         begin
           
