@@ -19,9 +19,11 @@ localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
 */
 localparam MIN_PCKT_SIZE = 8;
 localparam MAX_PCKT_SIZE = 190;
+// + 3 for sop, eop, val + EMPTY_WIDTH for empty
+//localparam DFIFO_DWIDTH   = AST_DWIDTH + 3 + EMPTY_WIDTH;
 // + 2 for sop, eop + EMPTY_WIDTH for empty
 localparam DFIFO_DWIDTH   = AST_DWIDTH + 2 + EMPTY_WIDTH;
-// 64 dwords
+// 256 dwords
 localparam DFIFO_AWIDTH   = 8;
 // 1 for channel + DFIFO_AWIDTH for mem offset
 localparam SFIFO_DWIDTH   = CHANNEL_WIDTH + DFIFO_AWIDTH;
@@ -33,6 +35,7 @@ localparam SFIFO_AWIDTH   = 16;
 // fifo data indexes
 localparam SOP_IDX   = DFIFO_DWIDTH - 1;
 localparam EOP_IDX   = DFIFO_DWIDTH - 2;
+localparam VAL_IDX   = DFIFO_DWIDTH - 3;
 localparam EMPTY_IDX = AST_DWIDTH;
 localparam DATA_IDX  = 0;
 // stat fifo indexes
@@ -121,23 +124,28 @@ logic                    drop;
 logic [DFIFO_AWIDTH-1:0] step_sf;
 //
 logic [DFIFO_AWIDTH-1:0] pcntr;
+logic [DFIFO_AWIDTH-1:0] dcntr;
+logic [DFIFO_AWIDTH-1:0] ncntr;
 // output logic
 logic                    sop_out;
 logic                    eop_out;
 logic                    valid_out;
 logic [AST_DWIDTH-1:0]   data_out;
 logic [EMPTY_WIDTH-1:0]  empty_out;
-
+// other
+logic valid_df;
+logic go;
 
 // 
 assign packet_stat = { sink_if.channel, pcntr };
-assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,
+assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,// sink_if.valid,
                        sink_if.empty, sink_if.data };
 
 ////////////////////////////
 // data fifo
 assign sop_df      = q_df[SOP_IDX];
 assign eop_df      = q_df[EOP_IDX];
+//assign valid_df    = q_df[VAL_IDX];
 assign emptyast_df = q_df[EMPTY_IDX+:EMPTY_WIDTH];
 assign data_df     = q_df[DATA_IDX+:AST_DWIDTH];
 // stat fifo
@@ -211,7 +219,6 @@ always_ff @( posedge clk_i )
   begin
     if( srst_i )
       begin
-        rd_df       <= '0;
         shift_df    <= '0;
         shift_df[0] <= '1;
       end
@@ -220,7 +227,6 @@ always_ff @( posedge clk_i )
       begin
         if( state == DCD_S )
           begin
-            rd_df <= '1;
             if( drop )
               shift_df <= step_sf;
             else
@@ -235,33 +241,101 @@ always_ff @( posedge clk_i )
           begin
             shift_df    <= '0;
             shift_df[0] <= 1'b1;
-            if( eop_df )
-              rd_df <= '0;
-            else
-              rd_df <= '1;
-          end
+            end
         else
           begin
-            rd_df       <= '0;
             shift_df    <= '0;
             shift_df[0] <= 1'b1;
           end
       end
   end
-  
-// output valid signal
+
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      src_if.valid <= '0;
+      rd_df <='0;
+    else
+      begin
+        if( state == DCD_S )
+          rd_df <= '1;
+        else if( ( state == TRNSM_S ) && go )
+          rd_df <= '1;
+        else
+          rd_df <= '0;
+      end
+    
+  end
+  
+// go
+assign go = ( ncntr < ( dcntr - 2'd2 )) ? '1 : '0;
+
+// ncntr
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      ncntr <= '0;
+    else
+      begin
+        if( state == DCD_S )
+          ncntr <= '0;
+        else if( src_if.valid )
+          ncntr <= ncntr + 1'b1;
+      end
+  end
+// output valid signal
+//always_ff @( posedge clk_i )
+//  begin
+//    if( srst_i )
+//      src_if.valid <= '0;
+//    else
+//      begin
+//        if( state == TRNSM_S )
+//          begin
+//            src_if.valid <= '1;
+//            if(  )
+//          end
+//          
+//        else
+//          src_if.valid <= '0;
+//      end
+//  end
+//assign valid = ( ( state == TRNSM_S ) &&
+//                 ( next_state == TRNSM_S ) ) ? '1 : '0;
+//
+//
+//always_ff @( posedge clk_i )
+//  begin
+//    if( srst_i )
+//      valid_d <= '0;
+//    else
+//      valid_d <= valid;
+//  end
+//
+//assign src_if.valid = valid & valid_d;
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      valid_out <= '0;
     else
       begin
         if( state == TRNSM_S )
-          src_if.valid <= '1;
+          valid_out <= rd_df;
         else
-          src_if.valid <= '0;
+          valid_out <= '0;
       end
   end
+
+
+// dcntr
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      dcntr <= '0;
+    else
+      if( rd_sf )
+        dcntr <= step_sf;
+  end
+                          
 // pcntr
 always_ff @( posedge clk_i )
   begin
@@ -280,6 +354,7 @@ assign src_if.startofpacket = sop_df;
 assign src_if.endofpacket = eop_df;
 assign src_if.data = data_df;
 assign src_if.empty = emptyast_df;
+assign src_if.valid = valid_out;
 assign src_if.channel = '0;
 assign wr_sf = sink_if.endofpacket;
 assign wr_df = sink_if.valid;
