@@ -40,7 +40,7 @@ logic wren;
 logic [AWIDTH-1:0] shift;
 
 
-(* ramstyle = "M10K, no_rw_check" *) logic [DWIDTH-1:0] mem [2**AWIDTH-1:0];
+(* ramstyle = "M10K" *) logic [DWIDTH-1:0] mem [2**AWIDTH-1:0];
 
 assign wren    = wr_i & ( ~full );
 assign full_o  = full;

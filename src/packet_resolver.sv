@@ -19,8 +19,6 @@ localparam EMPTY_WIDTH   = $clog2( AST_DWIDTH / 8 );
 */
 localparam MIN_PCKT_SIZE = 8;
 localparam MAX_PCKT_SIZE = 190;
-// + 3 for sop, eop, val + EMPTY_WIDTH for empty
-//localparam DFIFO_DWIDTH   = AST_DWIDTH + 3 + EMPTY_WIDTH;
 // + 2 for sop, eop + EMPTY_WIDTH for empty
 localparam DFIFO_DWIDTH   = AST_DWIDTH + 2 + EMPTY_WIDTH;
 // 256 dwords
@@ -35,7 +33,6 @@ localparam SFIFO_AWIDTH   = 16;
 // fifo data indexes
 localparam SOP_IDX   = DFIFO_DWIDTH - 1;
 localparam EOP_IDX   = DFIFO_DWIDTH - 2;
-localparam VAL_IDX   = DFIFO_DWIDTH - 3;
 localparam EMPTY_IDX = AST_DWIDTH;
 localparam DATA_IDX  = 0;
 // stat fifo indexes
@@ -138,14 +135,13 @@ logic go;
 
 // 
 assign packet_stat = { sink_if.channel, pcntr };
-assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,// sink_if.valid,
+assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,
                        sink_if.empty, sink_if.data };
 
 ////////////////////////////
 // data fifo
 assign sop_df      = q_df[SOP_IDX];
 assign eop_df      = q_df[EOP_IDX];
-//assign valid_df    = q_df[VAL_IDX];
 assign emptyast_df = q_df[EMPTY_IDX+:EMPTY_WIDTH];
 assign data_df     = q_df[DATA_IDX+:AST_DWIDTH];
 // stat fifo
@@ -321,14 +317,17 @@ always_ff @( posedge clk_i )
       end
   end
 
-assign src_if.startofpacket = sop_df;
-assign src_if.endofpacket = eop_df;
-assign src_if.data = data_df;
-assign src_if.empty = emptyast_df;
-assign src_if.valid = valid_out;
-assign src_if.channel = '0;
+
 assign wr_sf = sink_if.endofpacket & sink_if.ready;
-assign wr_df = sink_if.valid & sink_if.ready;
+assign wr_df = sink_if.valid & sink_if.ready;  
+  
+assign src_if.startofpacket = sop_df;
+assign src_if.endofpacket   = eop_df;
+assign src_if.data          = data_df;
+assign src_if.empty         = emptyast_df;
+assign src_if.valid         = valid_out;
+assign src_if.channel       = '0;
 
 assign sink_if.ready = ~full_df;
+
 endmodule
