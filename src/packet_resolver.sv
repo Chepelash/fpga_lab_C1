@@ -258,7 +258,7 @@ always_ff @( posedge clk_i )
       begin
         if( state == DCD_S )
           rd_df <= '1;
-        else if( ( state == TRNSM_S ) && go )
+        else if( ( state == TRNSM_S ) && go && src_if.ready )
           rd_df <= '1;
         else
           rd_df <= '0;
@@ -266,10 +266,10 @@ always_ff @( posedge clk_i )
     
   end
   
-// go
+// go - constraining rd_df signal
 assign go = ( ncntr < ( dcntr - 2'd2 )) ? '1 : '0;
 
-// ncntr
+// ncntr - counting output packets 
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
@@ -278,40 +278,11 @@ always_ff @( posedge clk_i )
       begin
         if( state == DCD_S )
           ncntr <= '0;
-        else if( src_if.valid )
+        else if( src_if.valid && src_if.ready )
           ncntr <= ncntr + 1'b1;
       end
   end
 // output valid signal
-//always_ff @( posedge clk_i )
-//  begin
-//    if( srst_i )
-//      src_if.valid <= '0;
-//    else
-//      begin
-//        if( state == TRNSM_S )
-//          begin
-//            src_if.valid <= '1;
-//            if(  )
-//          end
-//          
-//        else
-//          src_if.valid <= '0;
-//      end
-//  end
-//assign valid = ( ( state == TRNSM_S ) &&
-//                 ( next_state == TRNSM_S ) ) ? '1 : '0;
-//
-//
-//always_ff @( posedge clk_i )
-//  begin
-//    if( srst_i )
-//      valid_d <= '0;
-//    else
-//      valid_d <= valid;
-//  end
-//
-//assign src_if.valid = valid & valid_d;
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
@@ -326,7 +297,7 @@ always_ff @( posedge clk_i )
   end
 
 
-// dcntr
+// dcntr - saving number of packets in current packet
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
@@ -336,16 +307,16 @@ always_ff @( posedge clk_i )
         dcntr <= step_sf;
   end
                           
-// pcntr
+// pcntr - counting incoming packets
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
       pcntr <= '0 + 1'b1;
     else
       begin
-        if( sink_if.endofpacket )
+        if( sink_if.endofpacket && sink_if.ready )
           pcntr <= '0 + 1'b1;
-        else if( sink_if.valid )
+        else if( sink_if.valid && sink_if.ready )
           pcntr += 1'b1;        
       end
   end
@@ -356,8 +327,8 @@ assign src_if.data = data_df;
 assign src_if.empty = emptyast_df;
 assign src_if.valid = valid_out;
 assign src_if.channel = '0;
-assign wr_sf = sink_if.endofpacket;
-assign wr_df = sink_if.valid;
+assign wr_sf = sink_if.endofpacket & sink_if.ready;
+assign wr_df = sink_if.valid & sink_if.ready;
 
 assign sink_if.ready = ~full_df;
 endmodule
