@@ -86,19 +86,32 @@ class ASTPGen;
   endtask
   
   task automatic put_ast_data( mailbox amm_gen );
+    int rand_idx;
+    bit gen_ch;
     if( amm_gen != null )
       this.insert_key_phrase( amm_gen );
       
     this.ast_mbox.put( this.out_packet );
     this.ast_mbox.put( this.empty );
-    if( this.rand_ch && $urandom_range(1) )
-      this.ast_mbox.put( $urandom_range( this.out_packet.size() - 1 ) );
+    if( this.rand_ch && $urandom_range(1, 0) )
+      begin
+        rand_idx = $urandom_range( this.out_packet.size() - 1 );
+        gen_ch = 1;
+      end      
     else
-      this.ast_mbox.put( -1 );
+      begin
+        rand_idx = -1;
+        gen_ch = 0;
+      end
+      
+    this.ast_mbox.put( rand_idx );
       
     this.ast_arb_mbox.put( this.out_packet );
     this.ast_arb_mbox.put( this.empty );
-    this.ast_arb_mbox.put( this.is_put_key_phrase );
+    if( this.rand_ch )
+      this.ast_arb_mbox.put( gen_ch );
+    else
+      this.ast_arb_mbox.put( this.is_put_key_phrase );
   endtask
   
   task automatic run( int num = 1, mailbox amm_gen = null );
