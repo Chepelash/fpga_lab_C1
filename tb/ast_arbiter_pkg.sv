@@ -83,6 +83,8 @@ class AstArbiter;
       
     task automatic compare_data( int num, bit only_ch );
     
+    int cntr;
+    
     bit [AST_DWIDTH-1:0] out_packet_gen[$];
     bit [EMPTY_SIZE-1:0] empty_gen;
     bit                  channel_gen;
@@ -92,8 +94,18 @@ class AstArbiter;
     bit                  channel_sink;
     
 //    repeat( num )
-    for( int i = 0; i < num; i++ )
+    while( cntr < num )
       begin
+        cntr += 1;
+        
+        out_packet_gen = {};
+        empty_gen = 0;
+        channel_gen = 0;
+        
+        out_packet_sink = {};
+        empty_sink = 0;
+        channel_sink = 0;
+        
         this.from_gen.get( out_packet_gen );
         this.from_gen.get( empty_gen );
         this.from_gen.get( channel_gen );
@@ -105,7 +117,10 @@ class AstArbiter;
             this.from_sink.get( out_packet_sink );
             this.from_sink.get( empty_sink );
             this.from_sink.get( channel_sink );
-            
+            $display("gen size = %d; sink size = %d", out_packet_gen.size(),
+                                                      out_packet_sink.size());
+//            $display("gen packet = %p;\n\n", out_packet_gen);
+//            $display("sink packet = %p", out_packet_sink);
             if( out_packet_sink != out_packet_gen )
               begin
                 $display("AstArbiter.check_data - packet mismatch");
@@ -116,7 +131,7 @@ class AstArbiter;
                 $display("AstArbiter.check_data - empty mismatch");
                 $stop();
               end
-            if( channel_sink != channel_gen )
+            if( ( channel_sink != channel_gen ) && ( only_ch == 0 ) )
               begin
                 $display("AstArbiter.check_data - channel mismatch");
                 $display("Channel read = %d; channel generated = %d", channel_sink, channel_gen);
@@ -130,15 +145,13 @@ class AstArbiter;
     
     endtask
     
-    task automatic check_data( int num, bit only_ch );
-    
+  task automatic check_data( int num, bit only_ch );
     fork
-      this.ast_src.send_data( num );
+      this.ast_src.send_data( num );      
       this.ast_sink.read_data( num );
-      this.compare_data( num, only_ch );
-    join
-
-// НАДО РАЗДЕЛИТЬ ЛОГИКУ ДЛЯ ДВУХ РАЗНЫХ МОДУЛЕЙ   
+    join_none
+    this.compare_data( num, only_ch );
+    
 
   endtask
   
