@@ -92,12 +92,12 @@ initial
 
     ast_gen = new( gen2src, gen2arb, 1 ); // 1 for random channel
     ast_src = new( gen2src, ast_src_if );
-    ast_snk = new( snk2arb, ast_sink_if );
+    ast_snk = new( snk2arb, ast_sink_if, 0 ); // 0 for sink_if.ready = 1
     ast_arb = new( ast_src, ast_snk, gen2arb, snk2arb );
     
-    main_test( ast_gen, ast_arb, 30 );
+    main_test( ast_gen, ast_arb, 100 );
     
-    $display("Everything is OK!");
+    $display("It's fine!");
     $stop();
     
   end

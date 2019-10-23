@@ -6,14 +6,19 @@ class AstSinkDriver;
   mailbox to_arb;
   virtual avalon_st_if asink;
   
-  function new( mailbox to_arb, virtual avalon_st_if ast_sink_if );
+  function new( mailbox to_arb, virtual avalon_st_if ast_sink_if, bit rand_ready = 1 );
     this.to_arb = to_arb;
     this.asink  = ast_sink_if;
     
-    this.asink.ready <= '1;
-//    fork
-//      this.random_ready();
-//    join_none
+    if( rand_ready )
+      begin
+        fork
+          this.random_ready();
+        join_none
+      end
+    else
+      this.asink.ready <= '1;
+
   endfunction
   
   task random_ready();
