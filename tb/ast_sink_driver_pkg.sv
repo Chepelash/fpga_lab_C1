@@ -10,10 +10,10 @@ class AstSinkDriver;
     this.to_arb = to_arb;
     this.asink  = ast_sink_if;
     
-//    this.asink.ready <= '1;
-    fork
-      this.random_ready();
-    join_none
+    this.asink.ready <= '1;
+//    fork
+//      this.random_ready();
+//    join_none
   endfunction
   
   task random_ready();
@@ -33,7 +33,7 @@ class AstSinkDriver;
     int                  cntr;
     bit                  done;
     
-    repeat( num ) begin
+    forever begin
       cntr = 0;
       done = 0;
       channel = 0;

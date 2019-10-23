@@ -25,7 +25,7 @@ class AstSrcDriver;
     bit [EMPTY_SIZE-1:0] empty;
     int ch_ind;
     
-    repeat( num ) begin
+    forever begin
       this.gen_mbox.get( out_packet );
       this.gen_mbox.get( empty );
       this.gen_mbox.get( ch_ind );
