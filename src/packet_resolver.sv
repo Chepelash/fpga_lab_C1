@@ -70,44 +70,46 @@ logic                    empty_sf;
 logic                    full_sf;
 
 // fifos
-fifo       #(
-  .DWIDTH   ( SFIFO_DWIDTH ),
-  .AWIDTH   ( SFIFO_AWIDTH ),
-  .SWIDTH   ( 1            )
-) st_fifo   (
-  .clk_i    ( clk_i        ),
-  .srst_i   ( srst_i       ),
+fifo        #(
+  .DWIDTH    ( SFIFO_DWIDTH ),
+  .AWIDTH    ( SFIFO_AWIDTH ),
+  .SWIDTH    ( 1            ),
+  .SHOWAHEAD ( "ON"         )
+) st_fifo    (
+  .clk_i     ( clk_i        ),
+  .srst_i    ( srst_i       ),
   
-  .rd_i     ( rd_sf        ),
-  .wr_i     ( wr_sf        ),
-  .wrdata_i ( packet_stat  ),
+  .rd_i      ( rd_sf        ),
+  .wr_i      ( wr_sf        ),
+  .wrdata_i  ( packet_stat  ),
   
-  .shift_i  ( 1'b1         ),
+  .shift_i   ( 1'b1         ),
   
-  .empty_o  ( empty_sf     ),
-  .full_o   ( full_sf      ),
-  .rddata_o ( q_sf         )
+  .empty_o   ( empty_sf     ),
+  .full_o    ( full_sf      ),
+  .rddata_o  ( q_sf         )
   
 );
 
 
-fifo #(
-  .DWIDTH   ( DFIFO_DWIDTH ),
-  .AWIDTH   ( DFIFO_AWIDTH ),
-  .SWIDTH   ( DFIFO_AWIDTH )
-) dt_fifo   (
-  .clk_i    ( clk_i        ),
-  .srst_i   ( srst_i       ),
+fifo        #(
+  .DWIDTH    ( DFIFO_DWIDTH ),
+  .AWIDTH    ( DFIFO_AWIDTH ),
+  .SWIDTH    ( DFIFO_AWIDTH ),
+  .SHOWAHEAD ( "ON"         )
+) dt_fifo    (
+  .clk_i     ( clk_i        ),
+  .srst_i    ( srst_i       ),
   
-  .rd_i     ( rd_df        ),
-  .wr_i     ( wr_df        ),
-  .wrdata_i ( packet_data  ),
+  .rd_i      ( rd_df        ),
+  .wr_i      ( wr_df        ),
+  .wrdata_i  ( packet_data  ),
   
-  .shift_i  ( shift_df     ),
+  .shift_i   ( shift_df     ),
   
-  .empty_o  ( empty_df     ),
-  .full_o   ( full_df      ),
-  .rddata_o ( q_df         ) 
+  .empty_o   ( empty_df     ),
+  .full_o    ( full_df      ),
+  .rddata_o  ( q_df         ) 
 );
 
 // parsing fifos out packets
@@ -130,7 +132,7 @@ logic                    valid_out;
 logic [AST_DWIDTH-1:0]   data_out;
 logic [EMPTY_WIDTH-1:0]  empty_out;
 // other
-logic valid_df;
+logic valid_d;
 logic go;
 
 // 
@@ -168,7 +170,8 @@ always_comb
       end
       
       RD_S: begin
-        next_state = WAIT_S;
+//        next_state = WAIT_S;
+        next_state = DCD_S;
       end
       
       WAIT_S: begin
@@ -237,7 +240,7 @@ always_ff @( posedge clk_i )
           begin
             shift_df    <= '0;
             shift_df[0] <= 1'b1;
-            end
+          end
         else
           begin
             shift_df    <= '0;
@@ -252,18 +255,28 @@ always_ff @( posedge clk_i )
       rd_df <='0;
     else
       begin
-        if( state == DCD_S )
+        if( ( state == DCD_S ) && drop )
           rd_df <= '1;
-        else if( ( state == TRNSM_S ) && go && src_if.ready )
+        else if( ( state == TRNSM_S ) && src_if.ready && valid_out )//go && src_if.ready )
           rd_df <= '1;
         else
           rd_df <= '0;
       end
     
   end
-  
-// go - constraining rd_df signal
-assign go = ( ncntr < ( dcntr - 2'd2 )) ? '1 : '0;
+
+//always_comb
+//  begin
+//    if( state == DCD_S )
+//      rd_df = '1;
+//    else if( state == TRNSM_S )
+//      rd_df = ( src_if.ready & src_if.valid ) ? '1: '0;
+//    else
+//      rd_df = '0;
+//  end
+ 
+// go - constraining valid signal
+assign go = ( ncntr < ( dcntr - 2'd2 ) ) ? '1 : '0;
 
 // ncntr - counting output packets 
 always_ff @( posedge clk_i )
@@ -285,13 +298,20 @@ always_ff @( posedge clk_i )
       valid_out <= '0;
     else
       begin
-        if( state == TRNSM_S )
-          valid_out <= rd_df;
+        if( state == TRNSM_S && go )
+          valid_out <= '1;
         else
           valid_out <= '0;
       end
   end
 
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      valid_d <= '0;
+    else
+      valid_d <= valid_out;
+  end
 
 // dcntr - saving number of packets in current packet
 always_ff @( posedge clk_i )
@@ -325,7 +345,7 @@ assign src_if.startofpacket = sop_df;
 assign src_if.endofpacket   = eop_df;
 assign src_if.data          = data_df;
 assign src_if.empty         = emptyast_df;
-assign src_if.valid         = valid_out;
+assign src_if.valid         = valid_d;
 assign src_if.channel       = '0;
 
 assign sink_if.ready = ~full_df;
