@@ -134,6 +134,7 @@ logic [EMPTY_WIDTH-1:0]  empty_out;
 // other
 logic valid_d;
 logic go;
+logic dcd_rd;
 
 // 
 assign packet_stat = { sink_if.channel, pcntr };
@@ -187,7 +188,7 @@ always_comb
           next_state = IDLE_S;
       end
       TRNSM_S: begin
-        if( eop_df )
+        if( eop_df && src_if.valid && src_if.ready )
           begin
             if( ~empty_sf )
               next_state = RD_S;
@@ -249,34 +250,45 @@ always_ff @( posedge clk_i )
       end
   end
 
+//always_ff @( posedge clk_i )
+//  begin
+//    if( srst_i )
+//      rd_df <='0;
+//    else
+//      begin
+//        if( ( state == DCD_S ) && drop )
+//          rd_df <= '1;
+//        else if( ( state == TRNSM_S ) && src_if.ready && valid_out )//go && src_if.ready )
+//          rd_df <= '1;
+//        else
+//          rd_df <= '0;
+//      end
+//    
+//  end
+
 always_ff @( posedge clk_i )
   begin
     if( srst_i )
-      rd_df <='0;
+      dcd_rd <= '0;
     else
       begin
-        if( ( state == DCD_S ) && drop )
-          rd_df <= '1;
-        else if( ( state == TRNSM_S ) && src_if.ready && valid_out )//go && src_if.ready )
-          rd_df <= '1;
+        if( state == DCD_S && drop )
+          dcd_rd <= '1;
         else
-          rd_df <= '0;
+          dcd_rd <= '0;
       end
-    
   end
 
-//always_comb
-//  begin
-//    if( state == DCD_S )
-//      rd_df = '1;
-//    else if( state == TRNSM_S )
-//      rd_df = ( src_if.ready & src_if.valid ) ? '1: '0;
-//    else
-//      rd_df = '0;
-//  end
+always_comb
+  begin
+    if( ( ( state == TRNSM_S ) && src_if.ready && src_if.valid ) || dcd_rd )
+      rd_df = '1;
+    else
+      rd_df = '0;
+  end
  
 // go - constraining valid signal
-assign go = ( ncntr < ( dcntr - 2'd2 ) ) ? '1 : '0;
+assign go = ( ncntr < ( dcntr - 1'd1 ) ) ? '1 : '0;
 
 // ncntr - counting output packets 
 always_ff @( posedge clk_i )
@@ -298,8 +310,13 @@ always_ff @( posedge clk_i )
       valid_out <= '0;
     else
       begin
-        if( state == TRNSM_S && go )
-          valid_out <= '1;
+        if( state == TRNSM_S )
+          begin
+            if( eop_df && src_if.ready )
+              valid_out <= '0;
+            else
+              valid_out <= '1;
+          end
         else
           valid_out <= '0;
       end
@@ -345,7 +362,7 @@ assign src_if.startofpacket = sop_df;
 assign src_if.endofpacket   = eop_df;
 assign src_if.data          = data_df;
 assign src_if.empty         = emptyast_df;
-assign src_if.valid         = valid_d;
+assign src_if.valid         = valid_out;
 assign src_if.channel       = '0;
 
 assign sink_if.ready = ~full_df;
