@@ -30,15 +30,6 @@ localparam SFIFO_DWIDTH   = CHANNEL_WIDTH + DFIFO_AWIDTH;
 // value above is too large ( 2 ** 8 / 8 = 32 )
 localparam SFIFO_AWIDTH   = 16;
 
-// fifo data indexes
-localparam SOP_IDX   = DFIFO_DWIDTH - 1;
-localparam EOP_IDX   = DFIFO_DWIDTH - 2;
-localparam EMPTY_IDX = AST_DWIDTH;
-localparam DATA_IDX  = 0;
-// stat fifo indexes
-localparam CHNL_IDX = SFIFO_DWIDTH - CHANNEL_WIDTH;
-localparam SHFT_IDX = 0;
-
 // FSM states
 
 enum logic [1:0] { IDLE_S,
@@ -67,7 +58,18 @@ logic [DFIFO_AWIDTH-1:0] shift_sf;
 logic [SFIFO_DWIDTH-1:0] q_sf;
 logic                    empty_sf;
 logic                    full_sf;
+//
+typedef struct {
+  logic                   sop;
+  logic                   eop;
+  logic [EMPTY_WIDTH-1:0] empty;
+  logic [AST_DWIDTH-1:0]  data;
+} out_data_t;
 
+typedef struct {
+  logic                    channel;
+  logic [DFIFO_AWIDTH-1:0] cntr;
+} out_stat_t;
 // fifos
 fifo        #(
   .DWIDTH    ( SFIFO_DWIDTH ),
@@ -130,7 +132,8 @@ logic [AST_DWIDTH-1:0]   data_out;
 logic [EMPTY_WIDTH-1:0]  empty_out;
 // other
 logic dcd_rd;
-
+out_data_t out_data;
+out_stat_t out_stat;
 // 
 assign packet_stat = { sink_if.channel, pcntr };
 assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,
@@ -138,13 +141,15 @@ assign packet_data = { sink_if.startofpacket, sink_if.endofpacket,
 
 ////////////////////////////
 // data fifo
-assign sop_df      = q_df[SOP_IDX];
-assign eop_df      = q_df[EOP_IDX];
-assign emptyast_df = q_df[EMPTY_IDX+:EMPTY_WIDTH];
-assign data_df     = q_df[DATA_IDX+:AST_DWIDTH];
+assign out_data = out_data_t'(q_df);
+assign sop_df      = out_data.sop;
+assign eop_df      = out_data.eop;
+assign emptyast_df = out_data.empty;
+assign data_df     = out_data.data;
 // stat fifo
-assign drop    = ~q_sf[CHNL_IDX+:CHANNEL_WIDTH];
-assign step_sf = q_sf[SHFT_IDX+:DFIFO_AWIDTH];
+assign out_stat = out_stat_t'(q_sf);
+assign drop    = ~out_stat.channel;
+assign step_sf = out_stat.cntr;
 
 // FSM
 always_ff @( posedge clk_i )
