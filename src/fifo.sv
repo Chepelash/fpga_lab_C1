@@ -1,7 +1,8 @@
 module fifo #(
   parameter DWIDTH = 8,
   parameter AWIDTH = 4,
-  parameter SWIDTH = 1
+  parameter SWIDTH = 1,
+  parameter SHOWAHEAD = "ON" //188 0137 3
 )(
   input                     clk_i,
   input                     srst_i,
@@ -44,7 +45,14 @@ logic [AWIDTH-1:0] shift;
 
 assign wren    = wr_i & ( ~full );
 assign full_o  = full;
-assign empty_o = empty;
+
+generate
+  if( SHOWAHEAD == "ON" )
+    assign empty_o = empty_next;
+  else if( SHOWAHEAD == "OFF" )
+    assign empty_o = empty;
+endgenerate
+
 
 always_comb
   begin
@@ -52,11 +60,18 @@ always_comb
   end
 
 // reading mechanism
-always_ff @( posedge clk_i )
-  begin
-    rddata_o <= mem[rdpntr];
-  end
-//assign rddata_o = mem[rdpntr];
+generate
+  if( SHOWAHEAD == "ON" )
+    begin
+      always_ff @( posedge clk_i )
+        rddata_o <= mem[rdpntr_next];
+    end
+  else if( SHOWAHEAD == "OFF" )
+    begin
+      always_ff @( posedge clk_i )
+        rddata_o <= mem[rdpntr];
+    end  
+endgenerate
 
 // writing mechanism
 always_ff @( posedge clk_i )
