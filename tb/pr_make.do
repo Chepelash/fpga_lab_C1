@@ -36,9 +36,5 @@ add wave /packet_resolver_tb/ast_sink_if.endofpacket
 add wave /packet_resolver_tb/ast_sink_if.empty
 add wave /packet_resolver_tb/ast_sink_if.channel
 
-add wave /packet_resolver_tb/DUT/state
-add wave /packet_resolver_tb/DUT/next_state
-
-
 run -all
 
