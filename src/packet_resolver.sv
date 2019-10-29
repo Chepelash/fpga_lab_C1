@@ -41,10 +41,9 @@ localparam SHFT_IDX = 0;
 
 // FSM states
 
-enum logic [2:0] { IDLE_S,
+enum logic [1:0] { IDLE_S,
                    RD_S,
                    DCD_S,
-                   WAIT_S,
                    TRNSM_S } state, next_state;
 
 // data fifo signals
@@ -123,8 +122,6 @@ logic                    drop;
 logic [DFIFO_AWIDTH-1:0] step_sf;
 //
 logic [DFIFO_AWIDTH-1:0] pcntr;
-logic [DFIFO_AWIDTH-1:0] dcntr;
-logic [DFIFO_AWIDTH-1:0] ncntr;
 // output logic
 logic                    sop_out;
 logic                    eop_out;
@@ -132,8 +129,6 @@ logic                    valid_out;
 logic [AST_DWIDTH-1:0]   data_out;
 logic [EMPTY_WIDTH-1:0]  empty_out;
 // other
-logic valid_d;
-logic go;
 logic dcd_rd;
 
 // 
@@ -171,11 +166,6 @@ always_comb
       end
       
       RD_S: begin
-//        next_state = WAIT_S;
-        next_state = DCD_S;
-      end
-      
-      WAIT_S: begin
         next_state = DCD_S;
       end
       
@@ -250,21 +240,7 @@ always_ff @( posedge clk_i )
       end
   end
 
-//always_ff @( posedge clk_i )
-//  begin
-//    if( srst_i )
-//      rd_df <='0;
-//    else
-//      begin
-//        if( ( state == DCD_S ) && drop )
-//          rd_df <= '1;
-//        else if( ( state == TRNSM_S ) && src_if.ready && valid_out )//go && src_if.ready )
-//          rd_df <= '1;
-//        else
-//          rd_df <= '0;
-//      end
-//    
-//  end
+
 
 always_ff @( posedge clk_i )
   begin
@@ -287,22 +263,6 @@ always_comb
       rd_df = '0;
   end
  
-// go - constraining valid signal
-assign go = ( ncntr < ( dcntr - 1'd1 ) ) ? '1 : '0;
-
-// ncntr - counting output packets 
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      ncntr <= '0;
-    else
-      begin
-        if( state == DCD_S )
-          ncntr <= '0;
-        else if( src_if.valid && src_if.ready )
-          ncntr <= ncntr + 1'b1;
-      end
-  end
 // output valid signal
 always_ff @( posedge clk_i )
   begin
@@ -322,24 +282,6 @@ always_ff @( posedge clk_i )
       end
   end
 
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      valid_d <= '0;
-    else
-      valid_d <= valid_out;
-  end
-
-// dcntr - saving number of packets in current packet
-always_ff @( posedge clk_i )
-  begin
-    if( srst_i )
-      dcntr <= '0;
-    else
-      if( rd_sf )
-        dcntr <= step_sf;
-  end
-                          
 // pcntr - counting incoming packets
 always_ff @( posedge clk_i )
   begin
