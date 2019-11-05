@@ -95,7 +95,7 @@ task automatic ast_test( AMMGen amm_gen, ASTPGen gen, AstArbiter ast, AMM_Driver
   amm_driver.wrk_enable( 1 );
   amm_gen.to_ast_gen( num, amm_gen_mbox );
   gen.run( num, amm_gen_mbox );
-  ast.run( num );
+  ast.run( num, 1 );
 endtask
 
 AMM_Driver  amm_driver;
