@@ -22,4 +22,7 @@ parameter int EMPTY_SIZE        = $clog2(AST_DWIDTH / BITS_PER_SYMB);
 typedef bit [AMM_DWIDTH-1:0] regtype [AMM_NUM_REGS-1:0];
 typedef bit [AMM_DWIDTH-1:0] regdata [AMM_DATA_LEN-1:0];
 
+parameter int REG_DEPTH     = 4;
+parameter int CHANNEL_WIDTH = 1;
+
 endpackage
