@@ -1,12 +1,13 @@
 interface avalon_st_if #(
   parameter DWIDTH    = 64,
-  parameter CHANNEL_WIDTH = 1,
-  parameter EMPTY_WIDTH   = $clog2( DWIDTH / 8 )
+  parameter CHANNEL_WIDTH = 1  
 )(
 
   input clk_i
 
 );
+
+localparam EMPTY_WIDTH   = $clog2( DWIDTH / 8 );
 
 logic                     ready;
 logic [DWIDTH-1:0]        data;
@@ -29,14 +30,14 @@ modport sink (
 );
 
 modport src (
-  input  ready,
-  
   output data,
   output valid, 
   output startofpacket, 
   output endofpacket, 
   output empty,
-  output channel
+  output channel,
+  
+  input  ready
 );
 
 endinterface
