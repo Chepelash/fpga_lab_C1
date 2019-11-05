@@ -2,7 +2,7 @@ module fifo #(
   parameter DWIDTH = 8,
   parameter AWIDTH = 4,
   parameter SWIDTH = 1,
-  parameter SHOWAHEAD = "ON" //188 0137 3
+  parameter SHOWAHEAD = "ON" 
 )(
   input                     clk_i,
   input                     srst_i,
