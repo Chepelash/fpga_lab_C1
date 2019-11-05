@@ -47,9 +47,9 @@ packet_filter   #(
   
   .amm_if        ( amm_master_if ),
   
-  .src_if        ( ast_src_if    ),
+  .src_if        ( ast_sink_if   ),
   
-  .sink_if       ( ast_sink_if   )
+  .sink_if       (  ast_src_if   )
 );
 
 
