@@ -3,8 +3,7 @@ module packet_filter_wrap #(
   parameter AST_DWIDTH    = 64,
   parameter REG_DEPTH     = 4,
   parameter BITS_PER_SYMB = 8,
-  parameter CHANNEL_WIDTH = 1,
-  parameter NUM_REGS      = 4  
+  parameter CHANNEL_WIDTH = 1
 )(
   input              clk_i,
   input              srst_i,
@@ -30,7 +29,7 @@ avalon_st_if #(
 
 avalon_mm_if #(
   .DWIDTH     ( AMM_DWIDTH ),
-  .NUM_REGS   ( NUM_REGS   )
+  .NUM_REGS   ( REG_DEPTH  )
 ) amm_d_if    (
   .clk_i      ( clk_i      )
 );
